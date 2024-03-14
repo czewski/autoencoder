@@ -21,10 +21,4 @@ def collate_fn(data):
         labels.append(label)
     
     #padded_sesss = padded_sesss.transpose(0,1)
-    print("padded_sesss")
-    print(padded_sesss)
-
-    print("shape")
-    print(padded_sesss.size())
-    #time.sleep(5)
     return padded_sesss, torch.tensor(labels).long(), lens
