@@ -195,8 +195,6 @@ print('avg length: ', all/(len(tra_seqs) + len(tes_seqs) * 1.0))
 if args.dataset == 'diginetica':
     if not os.path.exists('diginetica'):
         os.makedirs('diginetica')
-    print(tra[0][5])
-    print(tra[1][5])
 
     pickle.dump(tra, open('diginetica/train.txt', 'wb'))
     pickle.dump(tes, open('diginetica/test.txt', 'wb'))

@@ -34,10 +34,13 @@ def main():
 
     # Load data
     train, test = dataset.load_data(args.dataset_path) 
+    xxxx= len(train)
+    yyyy= len(test)
 
     # Init dataloaders
     train_data = dataset.RecSysDataset(train)
     test_data = dataset.RecSysDataset(test)
+
     train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True, collate_fn = utils.collate_fn)
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn)
 
@@ -54,7 +57,8 @@ def main():
         start = time.time()
 
         # Iterate over batches in the training data loader
-        for i, (seq, target, lens) in tqdm(enumerate(train_loader), total=len(train_loader)):
+        for i, (seq, lens) in tqdm(enumerate(train_loader), total=len(train_loader)):
+            #Why is it a tuple and not a fucking tensor?
             seq = seq.to(device)
 
             optimizer.zero_grad()

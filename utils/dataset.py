@@ -40,30 +40,31 @@ def load_data(root, maxlen=19, sort_by_len=False): #valid_portion=0.1,
     with open(path_test_data, 'rb') as f2:
         test_set = pickle.load(f2)
 
+
     if maxlen:
         new_train_set_x = []
-        new_train_set_y = []
-        for x, y in zip(train_set[0], train_set[1]):
+        #new_train_set_y = []
+        for x in zip(train_set):
             if len(x) < maxlen:
                 new_train_set_x.append(x)
-                new_train_set_y.append(y)
+                #new_train_set_y.append(y)
             else:
                 new_train_set_x.append(x[:maxlen])
-                new_train_set_y.append(y)
-        train_set = (new_train_set_x, new_train_set_y)
-        del new_train_set_x, new_train_set_y
+                #new_train_set_y.append(y)
+        train_set = (new_train_set_x ) #new_train_set_y
+        del new_train_set_x#, new_train_set_y
 
         new_test_set_x = []
-        new_test_set_y = []
-        for xx, yy in zip(test_set[0], test_set[1]):
+        #new_test_set_y = []
+        for xx in zip(test_set):#[0], test_set[1]
             if len(xx) < maxlen:
                 new_test_set_x.append(xx)
-                new_test_set_y.append(yy)
+                #new_test_set_y.append(yy)
             else:
                 new_test_set_x.append(xx[:maxlen])
-                new_test_set_y.append(yy)
-        test_set = (new_test_set_x, new_test_set_y)
-        del new_test_set_x, new_test_set_y
+                #new_test_set_y.append(yy)
+        test_set = (new_test_set_x) ##, new_test_set_y
+        del new_test_set_x##, new_test_set_y
 
     train = train_set
     test = test_set
@@ -71,15 +72,14 @@ def load_data(root, maxlen=19, sort_by_len=False): #valid_portion=0.1,
     return train, test
 
 # This is used for session only (reconstruct)
-# In the future we will add noise in here i guess?
 class RecSysDataset(Dataset):
     def __init__(self, data):
         self.data = data
         
     def __getitem__(self, index):
-        session_items = self.data[0][index]
-        target_item = self.data[1][index]
-        return session_items, target_item
+        session_items = self.data[index]
+        #target_item = self.data[1][index]
+        return session_items
 
     def __len__(self):
-        return len(self.data[0])
+        return len(self.data) #[0]
