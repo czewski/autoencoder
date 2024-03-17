@@ -13,11 +13,10 @@ def collate_fn(data):
        It will be used in the Dataloader.
     """
     data.sort(key=lambda x: len(x), reverse=True)
-    lens = [len(sess[0]) for sess in data]
-    # 50x16 
-    padded_sesss = torch.zeros(len(data),max(lens)).long()
+    lens = [len(sess) for sess in data]
+    # 50x19
+    padded_sesss = torch.zeros(len(data),19).long()
     for i, sess in enumerate(data): 
-        padded_sesss[i,:lens[i]] = torch.LongTensor(sess[0])
+        padded_sesss[i,:lens[i]] = torch.LongTensor(sess)
     
-    print(padded_sesss)
     return padded_sesss, lens

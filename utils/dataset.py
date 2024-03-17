@@ -44,7 +44,7 @@ def load_data(root, maxlen=19, sort_by_len=False): #valid_portion=0.1,
     if maxlen:
         new_train_set_x = []
         #new_train_set_y = []
-        for x in zip(train_set):
+        for x in train_set:
             if len(x) < maxlen:
                 new_train_set_x.append(x)
                 #new_train_set_y.append(y)
@@ -56,7 +56,7 @@ def load_data(root, maxlen=19, sort_by_len=False): #valid_portion=0.1,
 
         new_test_set_x = []
         #new_test_set_y = []
-        for xx in zip(test_set):#[0], test_set[1]
+        for xx in test_set:#[0], test_set[1]
             if len(xx) < maxlen:
                 new_test_set_x.append(xx)
                 #new_test_set_y.append(yy)
