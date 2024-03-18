@@ -19,4 +19,5 @@ def collate_fn(data):
     for i, sess in enumerate(data): 
         padded_sesss[i,:lens[i]] = torch.LongTensor(sess)
     
+    #padded_sesss = padded_sesss.transpose(0,1)
     return padded_sesss, lens
