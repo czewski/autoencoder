@@ -16,14 +16,14 @@ import numpy as np
 # import pandas as pd
 
 # Local
-from models import autoencoder
+from models import vautoencoder
 from utils import dataset, utils, metric
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
-parser.add_argument('--batch_size', type=int, default=32, help='input batch size')
+parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--epoch', type=int, default=5, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
+parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 #parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
 #parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
@@ -41,13 +41,12 @@ def main():
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn)
 
     n_items = 43098
-    model = autoencoder.AutoEncoder(n_items).to(device)
+    model = vautoencoder.VariationalAutoencoder(n_items, input_dim=19, hidden_dim=100).to(device)
 
     optimizer = optim.Adam(model.parameters(), args.lr)
     #optimizer = optim.RMSprop(model.parameters(), args.lr)
-    criterion = nn.MSELoss() #nn.KLDivLoss() # #nn.CrossEntropyLoss()    
-    #criterion = nn.BCELoss()
-
+    #criterion = nn.MSELoss() #nn.KLDivLoss() # #nn.CrossEntropyLoss()     
+    criterion = nn.BCELoss()
 
     losses = []
     for epoch in tqdm(range(args.epoch)):
