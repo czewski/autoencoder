@@ -20,8 +20,8 @@ from models import vautoencoder
 from utils import dataset, utils, metric
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
-parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
+parser.add_argument('--dataset_path', default='data/diginetica/')
+parser.add_argument('--batch_size', type=int, default=32, help='input batch size')
 parser.add_argument('--epoch', type=int, default=5, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 #parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
@@ -41,12 +41,12 @@ def main():
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn)
 
     n_items = 43098
-    model = vautoencoder.VariationalAutoencoder(n_items, input_dim=19, hidden_dim=100).to(device)
+    model = vautoencoder.VariationalAutoencoder().to(device)
 
     optimizer = optim.Adam(model.parameters(), args.lr)
     #optimizer = optim.RMSprop(model.parameters(), args.lr)
-    #criterion = nn.MSELoss() #nn.KLDivLoss() # #nn.CrossEntropyLoss()     
-    criterion = nn.BCELoss()
+    criterion = nn.MSELoss() #nn.KLDivLoss() # #nn.CrossEntropyLoss()     
+    #criterion = nn.BCELoss()
 
     losses = []
     for epoch in tqdm(range(args.epoch)):
@@ -60,31 +60,21 @@ def main():
             seq = seq.to(device).to(torch.float32)
 
             optimizer.zero_grad()
-            outputs = model(seq)
-
-            loss = criterion(seq, outputs)
+            outputs, mu, log_var = model(seq)
+            recon_loss = criterion(seq, outputs)
+            kl_divergence = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+            loss = recon_loss + kl_divergence
             loss.backward()
             optimizer.step() 
 
             # Get the numerical value of the loss function
             loss_val = loss.item()
             sum_epoch_loss += loss_val
-
-            # Calculate the current iteration number
-            iter_num = epoch * len(train_loader) + i + 1
-        
+            
             if i % log_aggr == 0:
-                # print("outputs")
-                # print(outputs)
+                print(f'Epoch [{epoch + 1}/{args.epoch}], Recon Loss: {recon_loss.item():.4f}, KL Divergence: {kl_divergence.item():.4f}')
 
-                # print("seq")
-                # print(seq)
-
-                # time.sleep(5)
-                print('[TRAIN] epoch %d/%d batch loss: %.4f (avg %.4f) (%.2f im/s)'% (epoch + 1, args.epoch, loss_val, sum_epoch_loss / (i + 1),len(seq) / (time.time() - start)))
-
-            start = time.time()
-
+            #start = time.time()
 
         # Calculate the average loss for the epoch
         epoch_loss = sum_epoch_loss/len(train_loader)
