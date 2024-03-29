@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 
-def load_data(root, maxlen=19, sort_by_len=False): #valid_portion=0.1,
+def load_data(root, maxlen=20, sort_by_len=False): #valid_portion=0.1,
     '''Loads the dataset
 
     :type path: String

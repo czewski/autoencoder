@@ -15,7 +15,7 @@ def collate_fn(data):
     data.sort(key=lambda x: len(x), reverse=True)
     lens = [len(sess) for sess in data]
     # 50x19
-    padded_sesss = torch.zeros(len(data),19).long()
+    padded_sesss = torch.zeros(len(data),20).long()
     for i, sess in enumerate(data): 
         padded_sesss[i,:lens[i]] = torch.LongTensor(sess)
     
