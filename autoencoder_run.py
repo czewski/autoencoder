@@ -63,6 +63,12 @@ def main():
             optimizer.zero_grad()
             outputs = model(seq)
 
+            #Create mask max=20, real=lens[x]
+            mask = utils.create_matrix_mask(len(seq), 20, lens)
+
+            #Apply mask
+            outputs = outputs * mask
+
             loss = criterion(seq, outputs)
             loss.backward()
             optimizer.step() 

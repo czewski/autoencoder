@@ -4,22 +4,27 @@ import torch
 import torch.nn.init as weight_init
 
 class AutoEncoder(nn.Module):
-    def __init__(self, num_items, embedding_dim=100, hidden_dim=100):
+    def __init__(self, input_dim=20, hidden_dim=50):
         super(AutoEncoder, self).__init__()
         
-        #Method 3
-        # Stack encoders and decoders
+        #Method 5 (LSTM)
+        self.lstm = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, num_layers=1, batch_first=True)
+
+        #Method 4
+        #self.encoder = nn.Linear(input_dim, hidden_dim)
+        #self.decoder = nn.Linear(hidden_dim, input_dim)
+
+        #Method 3 -- Default one 
         encoder_modules, decoder_modules = [], []
-        encoder_modules.append(nn.Linear(19,100))
-        #encoder_modules.append(nn.Linear(256,100))
-        decoder_modules.append(nn.Linear(100,19))
-        #decoder_modules.append(nn.Linear(256,19))
+        encoder_modules.append(nn.Linear(input_dim,hidden_dim))
+        decoder_modules.append(nn.Linear(hidden_dim,input_dim))
         self.encoder = nn.ModuleList(encoder_modules)
         self.decoder = nn.ModuleList(decoder_modules)
 
         # Initialize weights
-        self.encoder.apply(self.weight_init)
-        self.decoder.apply(self.weight_init)
+        self.initialize_weights()
+        #self.encoder.apply(self.weight_init)
+        #self.decoder.apply(self.weight_init)
 
         #Method 2
         # Encoder layers
@@ -54,14 +59,42 @@ class AutoEncoder(nn.Module):
         #         weight_init.constant_(layer.weight, 1)
         #         weight_init.constant_(layer.bias, 0)  
     
-    def weight_init(self, m):
-        if isinstance(m, nn.Linear):
-            nn.init.kaiming_normal_(m.weight)
-            m.bias.data.zero_()
+    def initialize_weights(self):
+        for layer in self.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                nn.init.constant_(layer.bias, 0.0)
+
+    # def weight_init(self, m):
+    #     if isinstance(m, nn.Linear):
+    #         nn.init.kaiming_normal_(m.weight)
+    #         m.bias.data.zero_()
 
 
 
     def forward(self, x):
+        #Method 5 
+        #x = x.transpose(1,0)
+        x = x.unsqueeze(-1)
+        lstm_out, _ = self.lstm(x)
+        lstm_out = lstm_out[:, -1, :]
+        
+        # Pass through Encoder
+        for i, layer in enumerate(self.encoder):
+            lstm_out = layer(lstm_out)
+            if i != len(self.encoder) - 1:
+                lstm_out = F.relu(lstm_out)
+
+        # Pass through Decoder
+        for i, layer in enumerate(self.decoder):
+            lstm_out = layer(lstm_out)
+            if i != len(self.decoder) - 1:
+                lstm_out = F.relu(lstm_out)
+
+        #Method 4
+        # x = torch.sigmoid(self.encoder(x))
+        # x = torch.sigmoid(self.decoder(x))
+
         #Method 3
         #x = F.normalize(x)
         #x = self.input_dropout(x)
@@ -86,4 +119,4 @@ class AutoEncoder(nn.Module):
         # encoded = F.relu(self.encoder(input))  # Pass through encoder with ReLU activation
         # #decoded = torch.sigmoid(self.decoder(encoded))  # Pass through decoder with sigmoid activation
         # decoded = torch.softmax(self.decoder(encoded), dim=1)  # Pass through decoder with sigmoid activation
-        return x
+        return lstm_out
