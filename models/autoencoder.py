@@ -8,7 +8,7 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
         
         #Method 5 (LSTM)
-        self.lstm = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, num_layers=1, batch_first=True)
+        self.lstm = nn.LSTM(input_size=1, hidden_size=hidden_dim, num_layers=1, batch_first=False)
 
         #Method 4
         #self.encoder = nn.Linear(input_dim, hidden_dim)
@@ -16,7 +16,7 @@ class AutoEncoder(nn.Module):
 
         #Method 3 -- Default one 
         encoder_modules, decoder_modules = [], []
-        encoder_modules.append(nn.Linear(input_dim,hidden_dim))
+        encoder_modules.append(nn.Linear(hidden_dim,hidden_dim))
         decoder_modules.append(nn.Linear(hidden_dim,input_dim))
         self.encoder = nn.ModuleList(encoder_modules)
         self.decoder = nn.ModuleList(decoder_modules)
@@ -74,11 +74,13 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x):
         #Method 5 
+
         #x = x.transpose(1,0)
         x = x.unsqueeze(-1)
         lstm_out, _ = self.lstm(x)
         lstm_out = lstm_out[:, -1, :]
-        
+        #print(lstm_out.size())
+
         # Pass through Encoder
         for i, layer in enumerate(self.encoder):
             lstm_out = layer(lstm_out)
@@ -99,17 +101,17 @@ class AutoEncoder(nn.Module):
         #x = F.normalize(x)
         #x = self.input_dropout(x)
         
-        for i, layer in enumerate(self.encoder):
-            x = layer(x)
-            if i != len(self.encoder) - 1:
-                x = F.relu(x)
-                #x = torch.tanh(x)
+        # for i, layer in enumerate(self.encoder):
+        #     x = layer(x)
+        #     if i != len(self.encoder) - 1:
+        #         x = F.relu(x)
+        #         #x = torch.tanh(x)
 
-        for i, layer in enumerate(self.decoder):
-            x = layer(x)
-            if i != len(self.decoder) - 1:
-                x = F.relu(x)
-                #x = torch.tanh(x)
+        # for i, layer in enumerate(self.decoder):
+        #     x = layer(x)
+        #     if i != len(self.decoder) - 1:
+        #         x = F.relu(x)
+        #         #x = torch.tanh(x)
         
         #Method 2
         # x = self.encoder(x)

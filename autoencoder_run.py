@@ -21,9 +21,9 @@ from utils import dataset, utils, metric
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
-parser.add_argument('--batch_size', type=int, default=32, help='input batch size')
-parser.add_argument('--epoch', type=int, default=5, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
+parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
+parser.add_argument('--epoch', type=int, default=200, help='the number of epochs to train for')
+parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 #parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
 #parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
@@ -41,7 +41,7 @@ def main():
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn)
 
     n_items = 43098
-    model = autoencoder.AutoEncoder(n_items).to(device)
+    model = autoencoder.AutoEncoder().to(device)
 
     optimizer = optim.Adam(model.parameters(), args.lr)
     #optimizer = optim.RMSprop(model.parameters(), args.lr)
@@ -62,12 +62,13 @@ def main():
 
             optimizer.zero_grad()
             outputs = model(seq)
+            #print(outputs.size())
 
             #Create mask max=20, real=lens[x]
-            mask = utils.create_matrix_mask(len(seq), 20, lens)
+            #mask = utils.create_matrix_mask(len(seq), 20, lens)
 
             #Apply mask
-            outputs = outputs * mask
+            #outputs = outputs * mask
 
             loss = criterion(seq, outputs)
             loss.backward()
