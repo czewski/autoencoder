@@ -1,18 +1,3 @@
-#!/usr/bin/env python37
-# -*- coding: utf-8 -*-
-"""
-Created on 17 Sep, 2019
-
-Reference: https://github.com/CRIPAC-DIG/SR-GNN/blob/master/datasets/preprocess.py
-
-预处理基本流程：
-1. 创建两个字典sess_clicks和sess_date来分别保存session的相关信息。两个字典都以sessionId为键，其中session_click以一个Session中用户先后点击的物品id
-构成的List为值；session_date以一个Session中最后一次点击的时间作为值，后续用于训练集和测试集的划分；
-2. 过滤长度为1的Session和出现次数小于5次的物品；
-3. 依据日期划分训练集和测试集。其中Yoochoose数据集以最后一天时长内的Session作为测试集，Diginetica数据集以最后一周时长内的Session作为测试集；
-4. 分解每个Session生成最终的数据格式。每个Session中以不包括最后一个物品的其他物品作为特征，以最后一个物品作为标签。同时把物品的id重新编码成从1开始递增的自然数序列
-"""
-
 import argparse
 import time
 import csv
@@ -21,6 +6,7 @@ import operator
 import datetime
 import os
 from tqdm import tqdm
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default='diginetica', help='dataset name')
@@ -100,8 +86,8 @@ for _, date in dates:
 splitdate = maxdate - 86400 * 7
 
 print('Splitting date', splitdate)      # Yoochoose: ('Split date', 1411930799.0)
-tra_sess = filter(lambda x: x[1] < splitdate, dates)
-tes_sess = filter(lambda x: x[1] > splitdate, dates)
+tra_sess = list(filter(lambda x: x[1] < splitdate, dates))
+tes_sess = list(filter(lambda x: x[1] > splitdate, dates))
 
 # Sort sessions by date
 tra_sess = sorted(tra_sess, key=operator.itemgetter(1))     # [(sessionId, timestamp), (), ]
@@ -138,7 +124,6 @@ def obtian_tra():
     print(f'item count: {item_ctr}') # 43098, 37484
     return train_ids, train_dates, train_seqs
 
-
 # Convert test sessions to sequences, ignoring items that do not appear in training set
 def obtian_tes():
     test_ids = []
@@ -160,25 +145,6 @@ def obtian_tes():
 tra_ids, tra_dates, tra_seqs = obtian_tra()
 tes_ids, tes_dates, tes_seqs = obtian_tes()
 
-def process_seqs(iseqs, idates):
-    out_seqs = []
-    out_dates = []
-    labs = []
-    ids = []
-    #Here the magic happens 
-    for id, seq, date in zip(range(len(iseqs)), iseqs, idates):
-        for i in range(1, len(seq)):
-            tar = seq[-i]
-            labs += [tar]
-            out_seqs += [seq[:-i]]
-            out_dates += [date]
-            ids += [id]
-    return out_seqs, out_dates, labs, ids
-
-# tr_seqs, tr_dates, tr_labs, tr_ids = process_seqs(tra_seqs, tra_dates)
-# te_seqs, te_dates, te_labs, te_ids = process_seqs(tes_seqs, tes_dates)
-# tra = (tr_seqs, tr_labs)
-# tes = (te_seqs, te_labs)
 all = 0
 
 for seq in tra_seqs:
@@ -186,11 +152,49 @@ for seq in tra_seqs:
 for seq in tes_seqs:
     all += len(seq)
 print('avg length: ', all/(len(tra_seqs) + len(tes_seqs) * 1.0))
-if args.dataset == 'diginetica':
-    if not os.path.exists('diginetica'):
-        os.makedirs('diginetica')
 
-    pickle.dump(tra_seqs, open('diginetica/train.txt', 'wb'))
-    pickle.dump(tes_seqs, open('diginetica/test.txt', 'wb'))
-    pickle.dump(tra_seqs, open('diginetica/all_train_seq.txt', 'wb'))
+# Function to pad sequences to a fixed length
+def pad_sequences(sequences, maxlen=None, padding='post', truncating='post', value=0):
+    lengths = [len(s) for s in sequences]
+    if maxlen is None:
+        maxlen = max(lengths)
+    padded_sequences = np.full((len(sequences), maxlen), value)
+    for i, s in enumerate(sequences):
+        if len(s) > maxlen:
+            if truncating == 'pre':
+                truncated = s[-maxlen:]
+            else:
+                truncated = s[:maxlen]
+        else:
+            truncated = s
+        if padding == 'post':
+            padded_sequences[i, :len(truncated)] = truncated
+        else:
+            padded_sequences[i, -len(truncated):] = truncated
+    return padded_sequences
+
+# Pad the sequences
+tra_seqs_padded = pad_sequences(tra_seqs, padding='post')
+tes_seqs_padded = pad_sequences(tes_seqs, padding='post')
+
+# Normalize the sequences
+mean_tra = np.mean([item for sublist in tra_seqs_padded for item in sublist if item != 0])
+std_tra = np.std([item for sublist in tra_seqs_padded for item in sublist if item != 0])
+tra_seqs_normalized = (tra_seqs_padded - mean_tra) / std_tra
+
+mean_tes = np.mean([item for sublist in tes_seqs_padded for item in sublist if item != 0])
+std_tes = np.std([item for sublist in tes_seqs_padded for item in sublist if item != 0])
+tes_seqs_normalized = (tes_seqs_padded - mean_tes) / std_tes
+
+stats = [mean_tra, std_tra, mean_tes, std_tes]
+
+if args.dataset == 'diginetica':
+    if not os.path.exists('diginetica_normalized'):
+        os.makedirs('diginetica_normalized')
+
+    pickle.dump(tra_seqs_normalized, open('diginetica_normalized/train.txt', 'wb'))
+    pickle.dump(tes_seqs_normalized, open('diginetica_normalized/test.txt', 'wb'))
+    pickle.dump(tra_seqs_normalized, open('diginetica_normalized/all_train_seq.txt', 'wb'))
+    pickle.dump(stats, open('diginetica_normalized/stats.txt', 'wb'))
+
 print('Done.')
