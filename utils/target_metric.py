@@ -1,4 +1,5 @@
 import torch
+
 def get_hit(indices, targets):
     """
     Calculates the HIT@K score for the given predictions and targets.

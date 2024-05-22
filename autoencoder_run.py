@@ -14,7 +14,7 @@ import numpy as np
 
 # Local
 from models import autoencoder
-from utils import dataset, utils, metric
+from utils import dataset, target_metric, utils, reconstruct_metric
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica_normalized/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
@@ -97,6 +97,32 @@ def main():
     plt.xlabel('Epoch')
     plt.ylabel('Loss')  
     plt.savefig('loss_curve.png')
+
+    # Evaluate 
+    print(validate(test_loader, model=model))
+
+def validate(valid_loader, model): #Can be used either for test or valid
+    model.eval()
+    mses = []
+    rmses = []
+    maes = []
+
+    with torch.no_grad():
+        for _, seq  in tqdm(enumerate(valid_loader)):
+            seq = seq.to(device).to(torch.float32)
+            outputs = model(seq)
+            mse, rmse, mae = reconstruct_metric.evaluate(outputs, seq)
+            mses.append(mse.item())
+            rmses.append(rmse)
+            maes.append(mae)
+
+            #print(mse) 
+
+    mean_mse = np.mean(mses)
+    mean_rmse = np.mean(rmses)
+    mean_mae = np.mean(maes)
+
+    return mean_mse, mean_rmse, mean_mae
 
 if __name__ == '__main__':
     main()
