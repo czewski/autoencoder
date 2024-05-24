@@ -17,7 +17,7 @@ from models import autoencoder
 from utils import dataset, target_metric, utils, reconstruct_metric
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica_normalized/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
+parser.add_argument('--dataset_path', default='data/diginetica_normalized_padded_no_target/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--epoch', type=int, default=50, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
@@ -32,8 +32,8 @@ def main():
     torch.manual_seed(42)
     train, test = dataset.load_data(args.dataset_path) 
 
-    train_data = dataset.RecSysDataset(train)
-    test_data = dataset.RecSysDataset(test)
+    train_data = dataset.DigineticaReconstruct(train)
+    test_data = dataset.DigineticaReconstruct(test)
     train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True) #, collate_fn = utils.collate_fn
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False) #, collate_fn = utils.collate_fn
 
@@ -49,6 +49,7 @@ def main():
         log_aggr = 100
 
         for i, seq  in tqdm(enumerate(train_loader)):
+            print(seq.size())
             seq = seq.to(device).to(torch.float32)
             optimizer.zero_grad()
             outputs = model(seq)
