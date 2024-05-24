@@ -16,7 +16,7 @@ import numpy as np
 # import pandas as pd
 
 # Local
-from models import example_ae
+from idk import example_ae
 from utils import dataset, target_metric, utils
 
 
