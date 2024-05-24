@@ -17,7 +17,7 @@ import numpy as np
 
 # Local
 from models import vautoencoder
-from utils import dataset, utils, metric
+from utils import dataset, target_metric, utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/')
@@ -116,7 +116,7 @@ def validate(valid_loader, model):
             target = target.to(device)
             outputs = model(seq, lens)
             logits = F.softmax(outputs, dim = 1)
-            recall, mrr, hit = metric.evaluate(logits, target, k = args.topk)
+            recall, mrr, hit = target_metric.evaluate(logits, target, k = args.topk)
             recalls.append(recall)
             mrrs.append(mrr)
             hits.append(hit)
