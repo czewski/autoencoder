@@ -49,7 +49,6 @@ def main():
         log_aggr = 100
 
         for i, seq  in tqdm(enumerate(train_loader)):
-            print(seq.size())
             seq = seq.to(device).to(torch.float32)
             optimizer.zero_grad()
             outputs = model(seq)
