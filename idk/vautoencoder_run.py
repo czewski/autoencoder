@@ -16,7 +16,7 @@ import numpy as np
 # import pandas as pd
 
 # Local
-from models import vautoencoder
+from idk import vautoencoder_old
 from utils import dataset, target_metric, utils
 
 parser = argparse.ArgumentParser()
@@ -41,7 +41,7 @@ def main():
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn)
 
     n_items = 43098
-    model = vautoencoder.VariationalAutoencoder().to(device)
+    model = vautoencoder_old.VariationalAutoencoder().to(device)
 
     optimizer = optim.Adam(model.parameters(), args.lr)
     #optimizer = optim.RMSprop(model.parameters(), args.lr)
