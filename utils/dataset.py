@@ -72,7 +72,7 @@ def load_data(root, maxlen=20, sort_by_len=False): #valid_portion=0.1,
     return train, test
 
 # This is used for session only (reconstruct)
-class RecSysDataset(Dataset):
+class DigineticaReconstruct(Dataset):
     def __init__(self, data):
         self.data = data
         
@@ -83,3 +83,16 @@ class RecSysDataset(Dataset):
 
     def __len__(self):
         return len(self.data) #[0]
+    
+    # This is used for session only (reconstruct)
+class DigineticaTarget(Dataset):
+    def __init__(self, data):
+        self.data = data
+        
+    def __getitem__(self, index):
+        session_items = self.data[0][index]
+        target_item = self.data[1][index]
+        return session_items, target_item
+
+    def __len__(self):
+        return len(self.data[0]) 
