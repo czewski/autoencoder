@@ -17,7 +17,7 @@ import numpy as np
 
 # Local
 from models import autoencoder
-from utils import dataset, utils, metric
+from utils import dataset, target_metric, utils
 
 #Denoising Autoencoder
 class DenoisingAutoencoder(nn.Module):

@@ -4,12 +4,12 @@ import torch
 import torch.nn.init as weight_init
 
 class AutoEncoder(nn.Module):
-    def __init__(self, input_dim=20, hidden_dim=50):
+    def __init__(self, input_dim=20, hidden_dim=50, output_dim=20):
         super(AutoEncoder, self).__init__()
         
         self.encoder = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, batch_first=True)
         self.decoder = nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, batch_first=True)
-        self.output_layer = nn.Linear(hidden_dim, input_dim)
+        self.output_layer = nn.Linear(hidden_dim, output_dim)
         self.relu = nn.ReLU()
 
         self.initialize_weights()
