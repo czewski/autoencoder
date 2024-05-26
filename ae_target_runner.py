@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+from torch.optim.lr_scheduler import StepLR
 
 #Utils
 import argparse
@@ -21,8 +22,8 @@ parser.add_argument('--dataset_path', default='data/diginetica_with_target/', he
 parser.add_argument('--batch_size', type=int, default=20, help='input batch size')
 parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
-#parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
-#parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
+parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
+parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 args = parser.parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -40,6 +41,7 @@ def main():
     model = autoencoder.AutoEncoder(input_dim=6, hidden_dim=50, output_dim=1).to(device) #   
     optimizer = optim.Adam(model.parameters(), args.lr) #optim.RMSprop
     criterion = nn.MSELoss() #nn.KLDivLoss() nn.CrossEntropyLoss() nn.BCELoss()
+    scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
 
     losses = []
     for epoch in tqdm(range(args.epoch)):
@@ -58,6 +60,8 @@ def main():
             loss = criterion(outputs, target)
             loss.backward()
             optimizer.step() 
+            scheduler.step()
+
 
             loss_val = loss.item()
             sum_epoch_loss += loss_val
