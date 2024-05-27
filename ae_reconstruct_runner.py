@@ -12,6 +12,7 @@ from tqdm import tqdm
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime
 
 # Local
 from models import autoencoder
@@ -22,12 +23,13 @@ parser.add_argument('--dataset_path', default='data/diginetica_normalized_padded
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
-parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
-parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
+parser.add_argument('--epoch', type=int, default=1, help='the number of epochs to train for')
+parser.add_argument('--lr_dc_step', type=int, default=1, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 args = parser.parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+MODEL_VARIATION = "AE_RECONSTRUCT_"
 
 def main():
     torch.manual_seed(42)
@@ -83,13 +85,14 @@ def main():
         # print('Epoch {} validation: Recall@{}: {:.4f}, MRR@{}: {:.4f}, HIT@{}: {:.4f} \n'.format(epoch, args.topk, recall, args.topk, mrr, args.topk, hit))
 
         # store best loss and save a model checkpoint
-        #ckpt_dict = {
-        #     'epoch': epoch + 1,
-        #     'state_dict': model.state_dict(),
-        #     'optimizer': optimizer.state_dict()
-        # }
-
-        #torch.save(ckpt_dict, 'autoencoder_latest_checkpoint.pth.tar')
+        ckpt_dict = {
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }
+        now = datetime.now()
+        timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
+        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'_latest_checkpoint'+timestamp+'.pth.tar')
 
     # Loss curve
     print('--------------------------------')

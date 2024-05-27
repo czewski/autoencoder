@@ -12,6 +12,7 @@ from tqdm import tqdm
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime
 
 # Local
 from models import vautoencoder
@@ -28,6 +29,7 @@ parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of st
 args = parser.parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+MODEL_VARIATION = "VAE_TARGET_"
 
 def main():
     torch.manual_seed(42)
@@ -79,13 +81,14 @@ def main():
         # print('Epoch {} validation: Recall@{}: {:.4f}, MRR@{}: {:.4f}, HIT@{}: {:.4f} \n'.format(epoch, args.topk, recall, args.topk, mrr, args.topk, hit))
 
         # store best loss and save a model checkpoint
-        #ckpt_dict = {
-        #     'epoch': epoch + 1,
-        #     'state_dict': model.state_dict(),
-        #     'optimizer': optimizer.state_dict()
-        # }
-
-        #torch.save(ckpt_dict, 'autoencoder_latest_checkpoint.pth.tar')
+        ckpt_dict = {
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }
+        now = datetime.now()
+        timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
+        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'_latest_checkpoint'+timestamp+'.pth.tar')
 
     # Loss curve
     print('--------------------------------')
