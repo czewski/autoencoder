@@ -39,6 +39,10 @@ def collate_fn(data):
 #     #padded_sesss = padded_sesss.transpose(0,1)
 #     return padded_sesss, lens
 
+    #Create mask max=20, real=lens[x]
+    #mask = utils.create_matrix_mask(len(seq), 20, lens)
+    #outputs = outputs * mask
+
 def create_matrix_mask(rows, max_size, x):
     if max(x) > max_size:
         raise ValueError("Maximum value in 'x' cannot exceed max_size.")

@@ -13,6 +13,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
+import csv   
 
 # Local
 from models import autoencoder
@@ -46,6 +47,8 @@ def main():
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
 
     losses = []
+    now = datetime.now()
+    timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
     for epoch in tqdm(range(args.epoch)):
         model.train()
         sum_epoch_loss = 0
@@ -86,9 +89,8 @@ def main():
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict()
         }
-        now = datetime.now()
-        timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
-        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'_latest_checkpoint'+timestamp+'.pth.tar')
+
+        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
 
     # Loss curve
     print('--------------------------------')
@@ -98,19 +100,29 @@ def main():
     plt.title('Training Loss Over Epochs')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')  
-    plt.savefig('loss_curve.png')
+    plt.savefig('loss_curves/'+MODEL_VARIATION+'loss_curve_'+timestamp+'.png')
 
-    # Evaluate 
-    print(test(test_loader, model=model))
+    # Test model
+    ckpt = torch.load('checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+    model.load_state_dict(ckpt['state_dict'])
+    test_mse, test_rmse, test_mae = validate(test_loader, model)
+    print("Test: MSE: {:.4f}, RMSE: {:.4f}, MAE: {:.4f}".format(test_mse, test_rmse, test_mae))
 
-def test(valid_loader, model): #Can be used either for test or valid
+    # Save stats to csv
+    model_unique_id = MODEL_VARIATION + timestamp
+    fields=[model_unique_id, test_mse, test_rmse, test_mae,timestamp,(time.time() - start), test_mse, test_rmse, test_mae]  
+    with open(r'stats/data.csv', 'a') as f:
+        writer = csv.writer(f)
+        writer.writerow(fields)
+
+def validate(valid_loader, model): #Can be used either for test or valid
     model.eval()
     mses = []
     rmses = []
     maes = []
 
     with torch.no_grad():
-        for _, (seq, target)  in tqdm(enumerate(valid_loader)):
+        for _, (seq, target, lens)  in tqdm(enumerate(valid_loader)):
             seq = seq.to(device).to(torch.float32)
             outputs = model(seq)
             mse, rmse, mae = reconstruct_metric.evaluate(outputs, target)

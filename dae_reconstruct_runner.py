@@ -13,6 +13,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
+import csv   
 
 # Local
 from models import autoencoder
@@ -21,7 +22,7 @@ from utils import dataset, target_metric, utils, reconstruct_metric
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica_normalized_padded_no_target/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
-parser.add_argument('--epoch', type=int, default=50, help='the number of epochs to train for')
+parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
 parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
@@ -47,6 +48,8 @@ def main():
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
 
     losses = []
+    now = datetime.now()
+    timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
     for epoch in tqdm(range(args.epoch)):
         model.train()
         sum_epoch_loss = 0
@@ -69,7 +72,6 @@ def main():
             loss_val = loss.item()
             sum_epoch_loss += loss_val
 
-        
             if i % log_aggr == 0:
                 print('[TRAIN] epoch %d/%d batch loss: %.4f (avg %.4f) (%.2f im/s)'% (epoch + 1, args.epoch, loss_val, sum_epoch_loss / (i + 1),len(seq) / (time.time() - start)))
 
@@ -88,9 +90,7 @@ def main():
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict()
         }
-        now = datetime.now()
-        timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
-        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'_latest_checkpoint'+timestamp+'.pth.tar')
+        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
 
     # Loss curve
     print('--------------------------------')
@@ -100,10 +100,20 @@ def main():
     plt.title('Training Loss Over Epochs')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')  
-    plt.savefig('loss_curve.png')
+    plt.savefig('loss_curves/'+MODEL_VARIATION+'loss_curve_'+timestamp+'.png')
 
-    # Evaluate 
-    print(validate(test_loader, model=model))
+    # Test model
+    ckpt = torch.load('checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+    model.load_state_dict(ckpt['state_dict'])
+    test_mse, test_rmse, test_mae = validate(test_loader, model)
+    print("Test: MSE: {:.4f}, RMSE: {:.4f}, MAE: {:.4f}".format(test_mse, test_rmse, test_mae))
+
+    # Save stats to csv
+    model_unique_id = MODEL_VARIATION + timestamp
+    fields=[model_unique_id, test_mse, test_rmse, test_mae,timestamp,(time.time() - start), test_mse, test_rmse, test_mae]  
+    with open(r'stats/data.csv', 'a') as f:
+        writer = csv.writer(f)
+        writer.writerow(fields)
 
 def validate(valid_loader, model): #Can be used either for test or valid
     model.eval()
