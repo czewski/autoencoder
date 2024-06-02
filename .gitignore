@@ -1,6 +1,6 @@
 *.pkl
 *.txt
-
+/checkpoints
 *.png
 *.json
 # Byte-compiled / optimized / DLL files
