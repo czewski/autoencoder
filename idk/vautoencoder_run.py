@@ -90,7 +90,7 @@ def main():
         #     'optimizer': optimizer.state_dict()
         # }
 
-        #torch.save(ckpt_dict, 'autoencoder_latest_checkpoint.pth.tar')
+        #torch.save(ckpt_dict, 'autoencoderlatest_checkpoint.pth.tar')
 
     # Loss curve
     print('--------------------------------')
