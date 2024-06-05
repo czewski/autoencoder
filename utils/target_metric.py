@@ -18,20 +18,6 @@ def get_hit(indices, targets):
     return int(hit)
 
 
-# def get_hit(indices, targets):
-#     """
-#     Calculates the HIT metric for the given predictions and targets
-
-#     Args:
-#         indices (Bxk): torch.LongTensor. top-k indices predicted by the model.
-#         targets (B): torch.LongTensor. actual target indices.
-
-#     Returns:
-#         hit (int): 1 if there is at least one hit, 0 otherwise.
-#     """
-#     intersection = set(targets.numpy()) & set(indices.numpy().flatten())
-#     return 1 if len(intersection) > 0 else 0
-
 def get_recall(indices, targets):
     """
     Calculates the recall score for the given predictions and targets
@@ -43,23 +29,13 @@ def get_recall(indices, targets):
     Returns:
         recall (float): the recall score
     """
-    # Reshape targets to have dimensions (-1, 1) and expand to match the shape of indices
+
     targets = targets.view(-1, 1).expand_as(indices)
-
-    # Compare predicted indices with target indices, resulting in a binary tensor
     hits = (targets == indices).nonzero()
-
-    # Check if there are no correct predictions
     if len(hits) == 0:
         return 0
-
-    # Calculate the number of hits by excluding the last column of the hits tensor
-    n_hits = hits[:, :-1].size(0)
-
-    # Calculate recall by dividing the number of hits by the total number of instances in the batch
+    n_hits = (targets == indices).nonzero()[:, :-1].size(0)
     recall = float(n_hits) / targets.size(0)
-
-    # Return the recall score as a float
     return recall
 
 
