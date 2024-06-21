@@ -5,13 +5,13 @@ import torch.nn.init as weight_init
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class AutoEncoderEmbedding(nn.Module):
-    def __init__(self, device, hidden_dim=150, embedding_dim=150, n_itens=43098):
+    def __init__(self, device, hidden_dim=250, embedding_dim=250, n_itens=43098):
         super(AutoEncoderEmbedding, self).__init__()
         self.device = device
         self.n_itens = n_itens
         self.hidden_size = hidden_dim
 
-        self.embedding = nn.Embedding(n_itens, embedding_dim, padding_idx=0) #Actually if padding idx really consider the zeros, that will help a lot
+        self.embedding = nn.Embedding(n_itens, embedding_dim) #padding_idx=0 #Actually if padding idx really consider the zeros, that will help a lot
         self.emb_dropout = nn.Dropout(p=0.25)
         
         self.encoder = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=False)
