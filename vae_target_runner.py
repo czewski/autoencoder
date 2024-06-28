@@ -34,7 +34,7 @@ MODEL_VARIATION = "VAE_TARGET_"
 
 def main():
     torch.manual_seed(42)
-    train, test = dataset.load_data(args.dataset_path) 
+    train, test = dataset.load_data_target(args.dataset_path) 
 
     train_data = dataset.DigineticaTarget(train)
     test_data = dataset.DigineticaTarget(test)

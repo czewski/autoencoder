@@ -20,7 +20,7 @@ from models import autoencoder
 from utils import dataset, target_metric, utils, reconstruct_metric
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica_with_target/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
+parser.add_argument('--dataset_path', default='data/diginetica_narm_target/')
 parser.add_argument('--batch_size', type=int, default=20, help='input batch size')
 parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
@@ -34,7 +34,7 @@ MODEL_VARIATION = "AE_TARGET_"
 
 def main():
     torch.manual_seed(42)
-    train, test = dataset.load_data(args.dataset_path) 
+    train, test = dataset.load_data_target(args.dataset_path) 
 
     train_data = dataset.DigineticaTarget(train)
     test_data = dataset.DigineticaTarget(test)

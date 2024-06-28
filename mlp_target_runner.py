@@ -16,40 +16,46 @@ from datetime import datetime
 import csv   
 
 # Local
-from models import autoencoder
-from utils import dataset, target_metric, utils, reconstruct_metric
+from models import mlp
+from utils import dataset, target_metric, utils
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica_with_target/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
-parser.add_argument('--batch_size', type=int, default=20, help='input batch size')
+parser.add_argument('--dataset_path', default='data/diginetica_my_preprocess_target/')
+parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
 parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
+parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
 parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 args = parser.parse_args()
+
+MODEL_VARIATION = "MLP_TARGET_"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_VARIATION = "DAE_TARGET_"
-NOISE_FACTOR = 0.25
 
 def main():
     torch.manual_seed(42)
-    train, test = dataset.load_data_target(args.dataset_path) 
 
-    train_data = dataset.DigineticaTarget(train)
-    test_data = dataset.DigineticaTarget(test)
-    train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True,collate_fn = utils.collate_fn) #, collate_fn = utils.collate_fn
-    test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn) #, 
+    ## Data loading and create dataloaders
+    train, test = dataset.load_data_mlp(args.dataset_path) 
 
-    model = autoencoder.AutoEncoder(input_dim=6, hidden_dim=50, output_dim=1).to(device) #   
-    optimizer = optim.Adam(model.parameters(), args.lr) #optim.RMSprop
-    criterion = nn.MSELoss() #nn.KLDivLoss() nn.CrossEntropyLoss() nn.BCELoss()
+    train_data = dataset.DatasetMLP(train)
+    test_data = dataset.DatasetMLP(test)
+    train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True, collate_fn=utils.collate_fn) 
+    test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = True, collate_fn=utils.collate_fn) 
+
+    ## Model definitions
+    model = mlp.MLP(input_dim=5, hidden_dim=500).to(device) 
+    optimizer = optim.Adam(model.parameters(), args.lr) 
+    #criterion = F.mse_loss()
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
 
+    # Info
     losses = []
     now = datetime.now()
     timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
+
+    # Training loop
     for epoch in tqdm(range(args.epoch)):
         model.train()
         sum_epoch_loss = 0
@@ -57,19 +63,25 @@ def main():
         log_aggr = 100
 
         for i, (seq, target, lens)  in tqdm(enumerate(train_loader)):
+
             seq = seq.to(device).to(torch.float32)
-            target = target.to(device).to(torch.float32)
-            target = target.unsqueeze(1)
+            target = target.type(torch.float32)
+            target = target.to(device)#.to(torch.LongTensor)
+            #target = target.unsqueeze(1)
 
-            noised_seq = seq + NOISE_FACTOR * torch.rand(seq.shape, device=device)
-            
-            optimizer.zero_grad()
+            # print(seq.size())
+            # print(target.size())
+            outputs = model(seq)
 
-            outputs = model(noised_seq)
-            loss = criterion(outputs, target)
+            output = outputs.view(-1)
+            #print(output.size())
+
+            loss = F.mse_loss(output, target)
+            #loss = criterion(output, target)
             loss.backward()
             optimizer.step() 
             scheduler.step()
+            optimizer.zero_grad()
 
             loss_val = loss.item()
             sum_epoch_loss += loss_val
@@ -92,6 +104,7 @@ def main():
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict()
         }
+
         torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
 
     # Loss curve
@@ -124,7 +137,7 @@ def validate(valid_loader, model): #Can be used either for test or valid
     maes = []
 
     with torch.no_grad():
-        for _, (seq, target, lens)   in tqdm(enumerate(valid_loader)):
+        for _, (seq, target, lens)  in tqdm(enumerate(valid_loader)):
             seq = seq.to(device).to(torch.float32)
             outputs = model(seq)
             mse, rmse, mae = reconstruct_metric.evaluate(outputs, target)
