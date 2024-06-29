@@ -1,5 +1,7 @@
 *.pkl
 *.txt
+*.csv
+*.model
 /checkpoints
 *.png
 *.json
