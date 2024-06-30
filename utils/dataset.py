@@ -1,15 +1,10 @@
-"""
-create on 18 Sep, 2019
-
-@author: wangshuo
-
-Reference: https://github.com/lijingsdu/sessionRec_NARM/blob/master/data_process.py
-"""
-
 import pickle
-import torch
 from torch.utils.data import Dataset
 import numpy as np
+import pandas as pd
+from ast import literal_eval
+import torch
+
 
 def load_data(root, maxlen=20, sort_by_len=False): #valid_portion=0.1,
     '''Loads the dataset
@@ -72,7 +67,7 @@ def load_data(root, maxlen=20, sort_by_len=False): #valid_portion=0.1,
     return train, test
 
 
-def load_data_target(root, maxlen=20, sort_by_len=False):
+def load_data_target(root, maxlen=15, sort_by_len=False):
 
     # Load the dataset
     path_train_data = root + 'train.txt'
@@ -120,11 +115,36 @@ def load_data_target(root, maxlen=20, sort_by_len=False):
         test_set_x = [test_set_x[i] for i in sorted_index]
         test_set_y = [test_set_y[i] for i in sorted_index]
 
-
     train = (train_set_x, train_set_y)
     test = (test_set_x, test_set_y)
 
     return train, test
+
+def load_data_mlp(root):
+    path_train_data = root + 'train.csv'
+    path_test_data = root + 'test.csv'
+
+    train_set = pd.read_csv(path_train_data, sep=',')
+    train_set['padded_itemId'] = train_set['padded_itemId'].apply(lambda s: literal_eval(s))
+
+    test_set = pd.read_csv(path_test_data, sep=',')
+    test_set['itemId'] = test_set['itemId'].apply(lambda s: literal_eval(s))
+
+    return train_set, test_set
+
+class DatasetMLP(Dataset):
+    def __init__(self, dataframe):
+        self.data = dataframe
+        self.itemIds = self.data['padded_itemId']
+        self.targets = self.data['target']
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        itemId = torch.tensor(self.itemIds[idx])
+        target = torch.tensor(self.targets[idx])
+        return itemId, target
 
 # This is used for session only (reconstruct)
 class DigineticaReconstruct(Dataset):

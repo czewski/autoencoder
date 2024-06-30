@@ -28,26 +28,27 @@ class AutoEncoderEmbedding(nn.Module):
                 nn.init.constant_(layer.bias, 0.0)
 
     def forward(self, seq, lengths):
-        #hidden = self.init_hidden(seq.size(1))
-        #seq = seq.transpose(0,1)
-        # print("hidden.size()")
-        # print(hidden.size())
-
-        #print(seq.size())
         embs = self.emb_dropout(self.embedding(seq))
         embs = pack_padded_sequence(embs, lengths)
 
         # Encode
         enc_out, hidden = self.encoder(embs)
         enc_out, lengths = pad_packed_sequence(enc_out)
-        # print("enc_out.size()")
-        # print(enc_out.size())
 
         # Decode
         dec_out, hidden = self.decoder(enc_out)
         
         # Scores
         item_embs = self.embedding(torch.arange(self.n_itens).to(self.device))
+
+        scores = torch.matmul(torch.sum(dec_out.permute(1,0,2), 1), self.output_layer(item_embs).permute(1, 0))
+
+        return scores
+
+    def init_hidden(self, batch_size):
+        #self.n_layers, b_s, self.hidden_size
+        return torch.zeros((1, batch_size), requires_grad=True).to(self.device)
+        
         # print("dec_out.size()")
         # print(dec_out.size())
 
@@ -58,11 +59,11 @@ class AutoEncoderEmbedding(nn.Module):
         # print("sum")
         # print(torch.sum(dec_out, 1).size())
 
-        scores = torch.matmul(torch.sum(dec_out.permute(1,0,2), 1), self.output_layer(item_embs).permute(1, 0))
 
-        return scores
+                #hidden = self.init_hidden(seq.size(1))
+        #seq = seq.transpose(0,1)
+        # print("hidden.size()")
+        # print(hidden.size())
 
-    def init_hidden(self, batch_size):
-        #self.n_layers, b_s, self.hidden_size
-        return torch.zeros((1, batch_size), requires_grad=True).to(self.device)
-        
+                # print("enc_out.size()")
+        # print(enc_out.size())

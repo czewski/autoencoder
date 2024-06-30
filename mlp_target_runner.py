@@ -14,14 +14,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 import csv   
+from gensim.models import Word2Vec
 
 # Local
 from models import mlp
 from utils import dataset, target_metric, utils
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica_my_preprocess_target/')
-parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
+parser.add_argument('--dataset_path', default='data/diginetica_my_preprocess_target_padding/')
+parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
 parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
@@ -41,11 +42,22 @@ def main():
 
     train_data = dataset.DatasetMLP(train)
     test_data = dataset.DatasetMLP(test)
-    train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True, collate_fn=utils.collate_fn) 
-    test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = True, collate_fn=utils.collate_fn) 
+    train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True) # , collate_fn=utils.collate_fn
+    test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = True) 
+
+    ## Load Embedding Matrix
+    item2vec_model = Word2Vec.load("item2vec.model")
+    item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
+    embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
+    embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+
+
+    # To check the size of the vocabulary
+    # vocab_size = len(item2vec_model.wv)
+    # print("Vocabulary size:", vocab_size) #== 107312
 
     ## Model definitions
-    model = mlp.MLP(input_dim=5, hidden_dim=500).to(device) 
+    model = mlp.MLP(embedding_matrix, input_dim=5, hidden_dim=500).to(device) 
     optimizer = optim.Adam(model.parameters(), args.lr) 
     #criterion = F.mse_loss()
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
@@ -62,10 +74,9 @@ def main():
         start = time.time()
         log_aggr = 100
 
-        for i, (seq, target, lens)  in tqdm(enumerate(train_loader)):
-
-            seq = seq.to(device).to(torch.float32)
-            target = target.type(torch.float32)
+        for i, (seq, target)  in tqdm(enumerate(train_loader)):
+            seq = seq.to(device)#.long() #to(torch.float32)
+            #target = target#.long() #type(torch.float32)
             target = target.to(device)#.to(torch.LongTensor)
             #target = target.unsqueeze(1)
 
