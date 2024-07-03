@@ -21,10 +21,10 @@ from models import mlp
 from utils import dataset, target_metric, utils
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica_my_preprocess_target_padding/')
+parser.add_argument('--dataset_path', default='data/diginetica_my_preprocess_target_padding_reorder/')
 parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
 parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
+parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
 parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
@@ -46,20 +46,15 @@ def main():
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = True) 
 
     ## Load Embedding Matrix
-    item2vec_model = Word2Vec.load("item2vec.model")
+    item2vec_model = Word2Vec.load("item2vec100_reorder_full.model")
     item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
     embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
     embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
 
-
-    # To check the size of the vocabulary
-    # vocab_size = len(item2vec_model.wv)
-    # print("Vocabulary size:", vocab_size) #== 107312
-
     ## Model definitions
     model = mlp.MLP(embedding_matrix, input_dim=5, hidden_dim=500).to(device) 
     optimizer = optim.Adam(model.parameters(), args.lr) 
-    #criterion = F.mse_loss()
+    criterion = nn.CrossEntropyLoss() #nn.MSELoss() ##
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
 
     # Info
@@ -75,24 +70,19 @@ def main():
         log_aggr = 100
 
         for i, (seq, target)  in tqdm(enumerate(train_loader)):
-            seq = seq.to(device)#.long() #to(torch.float32)
-            #target = target#.long() #type(torch.float32)
-            target = target.to(device)#.to(torch.LongTensor)
-            #target = target.unsqueeze(1)
+            seq = seq.to(device)
+            target = target.to(device).to(torch.float32)
+            optimizer.zero_grad()
 
-            # print(seq.size())
-            # print(target.size())
             outputs = model(seq)
+            loss = criterion(outputs, target)
 
-            output = outputs.view(-1)
-            #print(output.size())
-
-            loss = F.mse_loss(output, target)
-            #loss = criterion(output, target)
             loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
+ 
             optimizer.step() 
             scheduler.step()
-            optimizer.zero_grad()
 
             loss_val = loss.item()
             sum_epoch_loss += loss_val
@@ -110,13 +100,13 @@ def main():
         # print('Epoch {} validation: Recall@{}: {:.4f}, MRR@{}: {:.4f}, HIT@{}: {:.4f} \n'.format(epoch, args.topk, recall, args.topk, mrr, args.topk, hit))
 
         # store best loss and save a model checkpoint
-        ckpt_dict = {
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-        }
+        # ckpt_dict = {
+        #     'epoch': epoch + 1,
+        #     'state_dict': model.state_dict(),
+        #     'optimizer': optimizer.state_dict()
+        # }
 
-        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+        # torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
 
     # Loss curve
     print('--------------------------------')
