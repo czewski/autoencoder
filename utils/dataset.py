@@ -121,8 +121,8 @@ def load_data_target(root, maxlen=15, sort_by_len=False):
     return train, test
 
 def load_data_mlp(root):
-    path_train_data = root + 'train_padding_reorder.csv'
-    path_test_data = root + 'test_padding_reorder.csv'
+    path_train_data = root + 'train.csv'
+    path_test_data = root + 'test.csv'
 
     train_set = pd.read_csv(path_train_data, sep=',')
     train_set['padded_itemId'] = train_set['padded_itemId'].apply(lambda s: literal_eval(s))
@@ -142,6 +142,12 @@ class DatasetMLP(Dataset):
         return len(self.data)
     
     def __getitem__(self, idx):
+        print(self.itemIds)
+
+        #print(self.itemIds(idx))
+
+        print(self.itemIds[idx])
+
         itemId = torch.tensor(self.itemIds[idx])
         target = torch.tensor(self.targets[idx])
         return itemId, target

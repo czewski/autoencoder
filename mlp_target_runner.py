@@ -46,7 +46,7 @@ def main():
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = True) 
 
     ## Load Embedding Matrix
-    item2vec_model = Word2Vec.load("item2vec100_reorder_full.model")
+    item2vec_model = Word2Vec.load("item2vec100_reorder.model")
     item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
     embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
     embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
