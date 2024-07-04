@@ -142,11 +142,11 @@ class DatasetMLP(Dataset):
         return len(self.data)
     
     def __getitem__(self, idx):
-        print(self.itemIds)
+        # print(self.itemIds)
 
-        #print(self.itemIds(idx))
+        # #print(self.itemIds(idx))
 
-        print(self.itemIds[idx])
+        # print(self.itemIds[idx])
 
         itemId = torch.tensor(self.itemIds[idx])
         target = torch.tensor(self.targets[idx])

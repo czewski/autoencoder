@@ -14,12 +14,12 @@ class MLP(nn.Module):
 
         self.embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
         
-        self.rnn = nn.LSTM(input_size=embedding_matrix.size(1) * input_dim, hidden_size=hidden_dim, batch_first=True)
-        self.fc1 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, 1)
-
-        # self.fc1 = nn.Linear(embedding_matrix.size(1) * input_dim, hidden_dim)
+        # self.rnn = nn.LSTM(input_size=embedding_matrix.size(1) * input_dim, hidden_size=hidden_dim, batch_first=True)
+        # self.fc1 = nn.Linear(hidden_dim, hidden_dim)
         # self.fc2 = nn.Linear(hidden_dim, 1)
+
+        self.fc1 = nn.Linear(embedding_matrix.size(1) * input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, 100)
 
         #self.encoder = torchvision.ops.MLP(in_channels=input_dim, hidden_channels=[hidden_dim, 1], activation_layer=nn.ReLU)
         #self.decoder = torchvision.ops.MLP(in_channels=hidden_dim, hidden_channels=[input_dim], activation_layer=nn.ReLU)
@@ -35,10 +35,11 @@ class MLP(nn.Module):
     def forward(self, x):
         item_embeddings = self.embedding(x)
         item_embeddings = item_embeddings.view(item_embeddings.size(0), -1)  # Flatten (batch_size, sequence_length * embedding_dim)
+        #print(item_embeddings.size())
 
-        x1 = self.rnn(item_embeddings)
+        # x1 = self.rnn(item_embeddings)
 
-        y = torch.relu(self.fc1(x1))
+        y = torch.relu(self.fc1(item_embeddings))
         output = self.fc2(y)
 
-        return output.squeeze()
+        return output#.squeeze()

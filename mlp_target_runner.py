@@ -21,10 +21,10 @@ from models import mlp
 from utils import dataset, target_metric, utils
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica_my_preprocess_target_padding_reorder/')
+parser.add_argument('--dataset_path', default='data/diginetica/')
 parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
-parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
+parser.add_argument('--epoch', type=int, default=10, help='the number of epochs to train for')
+parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
 parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
@@ -39,22 +39,22 @@ def main():
 
     ## Data loading and create dataloaders
     train, test = dataset.load_data_mlp(args.dataset_path) 
-
     train_data = dataset.DatasetMLP(train)
     test_data = dataset.DatasetMLP(test)
     train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True) # , collate_fn=utils.collate_fn
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = True) 
 
     ## Load Embedding Matrix
-    item2vec_model = Word2Vec.load("item2vec100_reorder.model")
+    item2vec_model = Word2Vec.load("embeddings/item2vec.model")
     item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
     embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
     embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+    embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
 
     ## Model definitions
-    model = mlp.MLP(embedding_matrix, input_dim=5, hidden_dim=500).to(device) 
+    model = mlp.MLP(embedding_matrix, input_dim=5, hidden_dim=100).to(device) 
     optimizer = optim.Adam(model.parameters(), args.lr) 
-    criterion = nn.CrossEntropyLoss() #nn.MSELoss() ##
+    criterion = nn.MSELoss() #nn.MSELoss() ##
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
 
     # Info
@@ -71,15 +71,18 @@ def main():
 
         for i, (seq, target)  in tqdm(enumerate(train_loader)):
             seq = seq.to(device)
-            target = target.to(device).to(torch.float32)
+            target_emb = embedding(torch.LongTensor(target)).to(device)
             optimizer.zero_grad()
 
             outputs = model(seq)
-            loss = criterion(outputs, target)
+            # print(outputs.size())
+            # print(target_emb.size())
+
+            loss = criterion(outputs, target_emb)
 
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
+            #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
  
             optimizer.step() 
             scheduler.step()

@@ -8,7 +8,7 @@ from gensim.models import Word2Vec
 
 
 ## Load Embedding Matrix
-item2vec_model = Word2Vec.load("item2vec100_reorder_full.model")
+item2vec_model = Word2Vec.load("embeddings/item2vec.model")
 
 print(len(item2vec_model.wv.index_to_key))
 
@@ -39,7 +39,7 @@ embedding = nn.Embedding.from_pretrained(embedding_matrix)
 # embedding = nn.Embedding(107311, 100, padding_idx=0)
 # embedding.weight = nn.Parameter(embedding_matrix)
 # embedding.weight.requires_grad = False  # Freeze the embedding layer
-input = torch.LongTensor([[ 14588]])
+input = torch.LongTensor([[ 250994]])
 
 # input[input > 107311] = 1
 # print(input)
