@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-import torch.nn.init as weight_init
-import torchvision
+#import torch.nn.init as weight_init
+#import torchvision
 
 class MLP(nn.Module):
     def __init__(self, embedding_matrix, input_dim, hidden_dim):

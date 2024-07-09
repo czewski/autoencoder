@@ -26,7 +26,7 @@ parser.add_argument('--batch_size', type=int, default=16, help='input batch size
 parser.add_argument('--epoch', type=int, default=10, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
-parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
+parser.add_argument('--lr_dc_step', type=int, default=8, help='the number of steps after which the learning rate decay') 
 #parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 args = parser.parse_args()
 
@@ -121,11 +121,11 @@ def main():
     plt.ylabel('Loss')  
     plt.savefig('loss_curves/'+MODEL_VARIATION+'loss_curve_'+timestamp+'.png')
 
-    # Test model
-    ckpt = torch.load('checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
-    model.load_state_dict(ckpt['state_dict'])
-    test_mse, test_rmse, test_mae = validate(test_loader, model)
-    print("Test: MSE: {:.4f}, RMSE: {:.4f}, MAE: {:.4f}".format(test_mse, test_rmse, test_mae))
+    # # Test model
+    # ckpt = torch.load('checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+    # model.load_state_dict(ckpt['state_dict'])
+    # test_mse, test_rmse, test_mae = validate(test_loader, model)
+    # print("Test: MSE: {:.4f}, RMSE: {:.4f}, MAE: {:.4f}".format(test_mse, test_rmse, test_mae))
 
     # Save stats to csv
     model_unique_id = MODEL_VARIATION + timestamp
