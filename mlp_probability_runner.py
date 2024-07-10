@@ -18,19 +18,19 @@ from gensim.models import Word2Vec
 
 # Local
 from models import mlp
-from utils import dataset, target_metric, utils
+from utils import dataset, probability_metrics, utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/')
-parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
-parser.add_argument('--epoch', type=int, default=10, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
+parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
+parser.add_argument('--epoch', type=int, default=1, help='the number of epochs to train for')
+parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
-parser.add_argument('--lr_dc_step', type=int, default=8, help='the number of steps after which the learning rate decay') 
-#parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
+parser.add_argument('--lr_dc_step', type=int, default=3, help='the number of steps after which the learning rate decay') 
+parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 args = parser.parse_args()
 
-MODEL_VARIATION = "LSTM_TARGET_"
+MODEL_VARIATION = "LSTM_LOGITS_"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -49,12 +49,12 @@ def main():
     item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
     embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
     embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
-    embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
+    #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
 
     ## Model definitions
-    model = mlp.MLP(embedding_matrix, input_dim=5, hidden_dim=100, output_dim=100).to(device) 
+    model = mlp.MLP(embedding_matrix, input_dim=5, hidden_dim=100, output_dim=120778).to(device) 
     optimizer = optim.Adam(model.parameters(), args.lr) 
-    criterion = nn.MSELoss() #nn.MSELoss() ##
+    criterion = nn.CrossEntropyLoss() #nn.MSELoss() ##
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
 
     # Info
@@ -71,14 +71,16 @@ def main():
 
         for i, (seq, target)  in tqdm(enumerate(train_loader)):
             seq = seq.to(device)
-            target_emb = embedding(torch.LongTensor(target)).to(device)
+            target = target.to(device)
+
+            #target_emb = embedding(torch.LongTensor(target)).to(device)
             optimizer.zero_grad()
 
             outputs = model(seq)
             # print(outputs.size())
             # print(target_emb.size())
 
-            loss = criterion(outputs, target_emb)
+            loss = criterion(outputs, target)
 
             loss.backward()
 
@@ -103,13 +105,13 @@ def main():
         # print('Epoch {} validation: Recall@{}: {:.4f}, MRR@{}: {:.4f}, HIT@{}: {:.4f} \n'.format(epoch, args.topk, recall, args.topk, mrr, args.topk, hit))
 
         # store best loss and save a model checkpoint
-        # ckpt_dict = {
-        #     'epoch': epoch + 1,
-        #     'state_dict': model.state_dict(),
-        #     'optimizer': optimizer.state_dict()
-        # }
+        ckpt_dict = {
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }
 
-        # torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
 
     # Loss curve
     print('--------------------------------')
@@ -121,41 +123,46 @@ def main():
     plt.ylabel('Loss')  
     plt.savefig('loss_curves/'+MODEL_VARIATION+'loss_curve_'+timestamp+'.png')
 
-    # # Test model
-    # ckpt = torch.load('checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
-    # model.load_state_dict(ckpt['state_dict'])
-    # test_mse, test_rmse, test_mae = validate(test_loader, model)
-    # print("Test: MSE: {:.4f}, RMSE: {:.4f}, MAE: {:.4f}".format(test_mse, test_rmse, test_mae))
+    # Test model
+    ckpt = torch.load('checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+    model.load_state_dict(ckpt['state_dict'])
+    test_recall, test_mrr, test_hit = validate(test_loader, model)
+    print("Test: Recall@20: {:.4f}, MRR@20: {:.4f}, HIT@20: {:.4f}".format(test_recall, test_mrr, test_hit))
 
-    # Save stats to csv
+    # Save test metrics to stats
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_mse, test_rmse, test_mae,timestamp,(time.time() - start), test_mse, test_rmse, test_mae]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - start), test_recall, test_mrr, test_hit]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
 
 def validate(valid_loader, model): #Can be used either for test or valid
     model.eval()
-    mses = []
-    rmses = []
-    maes = []
+    recalls = []
+    mrrs = []
+    hits = []
 
     with torch.no_grad():
-        for _, (seq, target, lens)  in tqdm(enumerate(valid_loader)):
-            seq = seq.to(device).to(torch.float32)
+        for _, (seq, target)  in tqdm(enumerate(valid_loader)):
+            seq = seq.to(device)
+            target = target.to(device)
+
             outputs = model(seq)
-            mse, rmse, mae = reconstruct_metric.evaluate(outputs, target)
-            mses.append(mse.item())
-            rmses.append(rmse)
-            maes.append(mae)
 
-            #print(mse) 
+            #logits?
+            logits = F.softmax(outputs, dim = 1)
+            #print(logits.size())
 
-    mean_mse = np.mean(mses)
-    mean_rmse = np.mean(rmses)
-    mean_mae = np.mean(maes)
+            recall, mrr, hit = probability_metrics.evaluate(logits, target, args.topk)
+            recalls.append(recall)
+            mrrs.append(mrr)
+            hits.append(hit)
 
-    return mean_mse, mean_rmse, mean_mae
+    mean_recall = np.mean(recall)
+    mean_mrr = np.mean(mrr)
+    mean_hit = np.mean(hit)
+
+    return mean_recall, mean_mrr, mean_hit
 
 if __name__ == '__main__':
     main()
