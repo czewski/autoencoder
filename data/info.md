@@ -1,0 +1,2 @@
+- diginetica_1 = meu pre processamento 
+- diginetica = atual, copia exata do narm

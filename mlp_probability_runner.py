@@ -66,7 +66,7 @@ def main():
     for epoch in tqdm(range(args.epoch)):
         model.train()
         sum_epoch_loss = 0
-        start = time.time()
+        #start = time.time()
         log_aggr = 100
 
         for i, (seq, target)  in tqdm(enumerate(train_loader)):
@@ -95,7 +95,7 @@ def main():
             if i % log_aggr == 0:
                 print('[TRAIN] epoch %d/%d batch loss: %.4f (avg %.4f) (%.2f im/s)'% (epoch + 1, args.epoch, loss_val, sum_epoch_loss / (i + 1),len(seq) / (time.time() - start)))
 
-            start = time.time()
+            #start = time.time()
 
         # Calculate the average loss for the epoch
         epoch_loss = sum_epoch_loss/len(train_loader)
@@ -131,7 +131,7 @@ def main():
 
     # Save test metrics to stats
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - start), test_recall, test_mrr, test_hit]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now), test_recall, test_mrr, test_hit]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
