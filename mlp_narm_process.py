@@ -46,7 +46,7 @@ def main():
     torch.manual_seed(42)
 
     print('Loading data...')
-    train, valid, test = dataset.load_data_narm(args.dataset_path, valid_portion=args.valid_portion)
+    train, valid, test = dataset.load_data_narm(args.dataset_path, valid_portion=args.valid_portion, maxlen=19)
     
     train_data = dataset.RecSysDatasetNarm(train)
     valid_data = dataset.RecSysDatasetNarm(valid)
