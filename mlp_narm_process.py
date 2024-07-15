@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 #Local
 from utils import utils, dataset, probability_metrics
-from models import mlp_narm
+from models import mlp_narm, lstm_narm
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
@@ -62,19 +62,9 @@ def main():
     else:
         raise Exception('Unknown Dataset!')
 
-    ## Load Embedding Matrix
-    # item2vec_model = Word2Vec.load("embeddings/item2vec.model")
-    # item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
-    # embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
-    # embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
-    model = mlp_narm.MLP(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
 
-    # if args.test:
-    #     ckpt = torch.load('latest_checkpoint.pth.tar')
-    #     model.load_state_dict(ckpt['state_dict'])
-    #     recall, mrr = validate(test_loader, model)
-    #     print("Test: Recall@{}: {:.4f}, MRR@{}: {:.4f}".format(args.topk, recall, args.topk, mrr))
-    #     return
+    #model = mlp_narm.MLP(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
+    model = lstm_narm.LSTM(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
 
     optimizer = optim.Adam(model.parameters(), args.lr)
     criterion = nn.CrossEntropyLoss()
