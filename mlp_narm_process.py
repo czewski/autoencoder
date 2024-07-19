@@ -21,24 +21,24 @@ from tqdm import tqdm
 
 #Local
 from utils import utils, dataset, probability_metrics
-from models import mlp_narm, lstm_narm
+from models import mlp_narm, lstm_narm, lstm_attention
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--hidden_size', type=int, default=100, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
-parser.add_argument('--epoch', type=int, default=50, help='the number of epochs to train for')
+parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
-parser.add_argument('--lr_dc_step', type=int, default=40, help='the number of steps after which the learning rate decay') 
+parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 parser.add_argument('--test', action='store_true', help='test')
 parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
 args = parser.parse_args()
 print(args)
 
-MODEL_VARIATION = "MLP_NARM_"
+MODEL_VARIATION = "LSTM_ATT_"
 here = os.path.dirname(os.path.abspath(__file__))
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -64,7 +64,8 @@ def main():
 
 
     #model = mlp_narm.MLP(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
-    model = lstm_narm.LSTM(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
+    #model = lstm_narm.LSTM(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
+    model = lstm_attention.LSTMAttentionModel(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
 
     optimizer = optim.Adam(model.parameters(), args.lr)
     criterion = nn.CrossEntropyLoss()
