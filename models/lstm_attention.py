@@ -16,8 +16,8 @@ class LSTMAttentionModel(nn.Module):
       self.n_layers = n_layers
 
       self.embedding = nn.Embedding(n_items, embedding_dim)
-      self.lstm = nn.LSTM(embedding_dim*19, hidden_size, n_layers,
-                dropout=drop_prob, batch_first = True,)
+      self.lstm = nn.LSTM(embedding_dim, hidden_size, n_layers,
+                dropout=drop_prob, batch_first = False,)  ##Em algum momento testei com emb*19 e batch_first = true
       
       self.input_dim = hidden_size
       self.query = nn.Linear(hidden_size, hidden_size) # [batch_size, seq_length, input_dim]
@@ -30,28 +30,46 @@ class LSTMAttentionModel(nn.Module):
       keys = self.key(lstm_output)
       values = self.value(lstm_output)
 
-      score = torch.mm(queries, keys.transpose(0, 1))/(self.input_dim**0.5)
+      score = torch.bmm(queries, keys.transpose(1, 2))/(self.input_dim**0.5) #keys.transpose(0, 1)
       attention = self.softmax(score)
-      weighted = torch.mm(attention, values)
+      weighted = torch.bmm(attention, values)
       return weighted
-        
+
     def forward(self, x, lens):
       x = x.long()
-      embs = self.embedding(x) #self.drop(
-      embs = embs.permute(1, 0, 2)  # Change to (batch_size, sequence_length, embedding_dim)
-      embs = embs.contiguous().view(embs.size(0), -1)  # Flatten to (batch_size, sequence_length *        embedding_dim)
-
+      embs = self.embedding(x)  
+      
       output, (final_hidden_state, final_cell_state) = self.lstm(embs)
 
-      attn_output = self.attention_net(output)
+      lstm_out = output.permute(1, 0, 2) # (batch_size, sequence_length, embedding_dim)
 
-      item_embs = self.embedding(torch.arange(self.output_size)) #.to(self.device)
-      # print(item_embs.size())
-      scores = torch.matmul(attn_output, item_embs.permute(1, 0))
+      attn_output = self.attention_net(lstm_out)
+      attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
 
-      ##Layer de probs
+
+      item_embs = self.embedding(torch.arange(self.output_size).to(x.device))  # Ensure the tensor is on the same device
+      scores = torch.matmul(attn_output, item_embs.transpose(0, 1))
 
       return scores
+
+# First test
+    # def forward(self, x, lens):
+    #   x = x.long()
+    #   embs = self.embedding(x) #self.drop(
+    #   embs = embs.permute(1, 0, 2)  # Change to (batch_size, sequence_length, embedding_dim)
+    #   embs = embs.contiguous().view(embs.size(0), -1)  # Flatten to (batch_size, sequence_length *        embedding_dim)
+
+    #   output, (final_hidden_state, final_cell_state) = self.lstm(embs)
+
+    #   attn_output = self.attention_net(output)
+
+    #   item_embs = self.embedding(torch.arange(self.output_size).to(device)) #.to(self.device)
+    #   # print(item_embs.size())
+    #   scores = torch.matmul(attn_output, item_embs.permute(1, 0))
+
+    #   ##Layer de probs
+
+    #   return scores
     
 # class PositionalEncoding(nn.Module):
 #     def __init__(self, embedding_dim, max_len=5000):

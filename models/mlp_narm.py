@@ -37,18 +37,11 @@ class MLP(nn.Module):
         return torch.zeros((self.n_layers, batch_size, self.hidden_size), requires_grad=True).to(self.device)
 
     def forward(self, seq, lengths):
-        #print(lengths)
-        #hidden = self.init_hidden(seq.size(1))
-        # print(seq.size())
         embs = self.emb_dropout(self.emb(seq))
-        # embs = embs.view(embs.size(0), -1)  # Flatten (batch_size, sequence_length * embedding_dim)
-    
         embs = embs.permute(1, 0, 2)  # Change to (batch_size, sequence_length, embedding_dim)
         embs = embs.contiguous().view(embs.size(0), -1)  # Flatten to (batch_size, sequence_length * embedding_dim)
-        #print(embs.size())
-        #embs = pack_padded_sequence(embs, lengths)
-
+    
         y = torch.relu(self.fc1(embs))
         output = self.fc2(y)
 
-        return output#.squeeze()
+        return output
