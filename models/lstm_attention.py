@@ -11,45 +11,56 @@ class LSTMAttentionModel(nn.Module):
       self.batch_size = batch_size
       self.output_size = n_items
       self.hidden_size = hidden_size
+      self.input_dim = hidden_size
+    
       self.vocab_size = n_items
       self.embedding_length = embedding_dim
+
       self.n_layers = n_layers
 
-      self.embedding = nn.Embedding(n_items, embedding_dim)
-      self.lstm = nn.LSTM(embedding_dim, hidden_size, n_layers,
-                dropout=drop_prob, batch_first = False,)  ##Em algum momento testei com emb*19 e batch_first = true
+      ## Embeddings
+      self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
+      self.dropout = nn.Dropout(0.25)
+
+      ## RNN
+      self.lstm = nn.LSTM(embedding_dim, hidden_size, n_layers, batch_first = False)  ##Em algum momento testei com emb*19 e batch_first = true
       
-      self.input_dim = hidden_size
+      ## Attention
       self.query = nn.Linear(hidden_size, hidden_size) # [batch_size, seq_length, input_dim]
       self.key = nn.Linear(hidden_size, hidden_size) # [batch_size, seq_length, input_dim]
       self.value = nn.Linear(hidden_size, hidden_size)
-      self.softmax = nn.Softmax() #dim=2
+      self.softmax = nn.Softmax(dim=2) #dim=2 ##Why dimension 2?
       
-    def attention_net(self, lstm_output):
+    def attention_net(self, lstm_output, ): #padding_mask
       queries = self.query(lstm_output)
       keys = self.key(lstm_output)
       values = self.value(lstm_output)
 
       score = torch.bmm(queries, keys.transpose(1, 2))/(self.input_dim**0.5) #keys.transpose(0, 1)
+
+      # if padding_mask is not None:
+      #   # Apply the padding mask (masking out the padding tokens by setting their scores to -inf)
+      #   score = score.masked_fill(padding_mask.unsqueeze(1) == 0, float('-inf'))
+
       attention = self.softmax(score)
       weighted = torch.bmm(attention, values)
       return weighted
 
     def forward(self, x, lens):
       x = x.long()
-      embs = self.embedding(x)  
-      
-      output, (final_hidden_state, final_cell_state) = self.lstm(embs)
+      embs = self.dropout(self.embedding(x))
+  
+      output, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
+      lstm_out = output.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
 
-      lstm_out = output.permute(1, 0, 2) # (batch_size, sequence_length, embedding_dim)
+      #padding_mask = (lstm_out != 0).unsqueeze(-2)
 
-      attn_output = self.attention_net(lstm_out)
+      attn_output = self.attention_net(lstm_out) #padding_mask
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
 
-
+      # There's gotta be a better way to do this, maybe we can even introduce some more linear layers in here? 
       item_embs = self.embedding(torch.arange(self.output_size).to(x.device))  # Ensure the tensor is on the same device
       scores = torch.matmul(attn_output, item_embs.transpose(0, 1))
-
       return scores
 
 # First test
