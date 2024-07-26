@@ -4,7 +4,21 @@ import torch
 import math
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-## Self Attention
+class PositionalEncoding(nn.Module):
+    def __init__(self, embedding_dim, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.encoding = torch.zeros(max_len, embedding_dim)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, embedding_dim, 2).float() * (-math.log(10000.0) / embedding_dim))
+        self.encoding[:, 0::2] = torch.sin(position * div_term)
+        self.encoding[:, 1::2] = torch.cos(position * div_term)
+        self.encoding = self.encoding.unsqueeze(0)
+
+    def forward(self, x):
+        seq_len = x.size(1)
+        return x + self.encoding[:, :seq_len, :].to(x.device)
+
+## Self Attention // Dot product?
 class LSTMAttentionModel(nn.Module):
     def __init__(self, n_items, hidden_size, embedding_dim, batch_size, n_layers=1, drop_prob=0.5):
       super(LSTMAttentionModel, self).__init__()
@@ -20,14 +34,18 @@ class LSTMAttentionModel(nn.Module):
 
       ## Embeddings
       self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
-      self.dropout = nn.Dropout(0.25)
+      self.dropout = nn.Dropout(0.1)
+
+      # Positional Encoding
+      max_len = 5000
+      self.positional_encoding = PositionalEncoding(embedding_dim, max_len)
 
       ## RNN
       self.lstm = nn.LSTM(embedding_dim, hidden_size, n_layers, batch_first = False)  ##Em algum momento testei com emb*19 e batch_first = true
       
       ## Attention
-      self.query = nn.Linear(hidden_size, hidden_size) # [batch_size, seq_length, input_dim]
-      self.key = nn.Linear(hidden_size, hidden_size) # [batch_size, seq_length, input_dim]
+      self.query = nn.Linear(hidden_size, hidden_size)
+      self.key = nn.Linear(hidden_size, hidden_size) 
       self.value = nn.Linear(hidden_size, hidden_size)
       self.softmax = nn.Softmax(dim=2) #dim=2 ##Why dimension 2?
       
@@ -49,13 +67,14 @@ class LSTMAttentionModel(nn.Module):
     def forward(self, x, lens):
       x = x.long()
       embs = self.dropout(self.embedding(x))
+      embs = self.positional_encoding(embs)  # Apply positional encoding
   
       output, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
       lstm_out = output.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
 
       #padding_mask = (lstm_out != 0).unsqueeze(-2)
 
-      attn_output = self.attention_net(lstm_out) #padding_mask
+      attn_output = self.attention_net(lstm_out) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
 
       # There's gotta be a better way to do this, maybe we can even introduce some more linear layers in here? 
@@ -81,17 +100,3 @@ class LSTMAttentionModel(nn.Module):
     #   ##Layer de probs
 
     #   return scores
-    
-# class PositionalEncoding(nn.Module):
-#     def __init__(self, embedding_dim, max_len=5000):
-#         super(PositionalEncoding, self).__init__()
-#         self.encoding = torch.zeros(max_len, embedding_dim)
-#         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-#         div_term = torch.exp(torch.arange(0, embedding_dim, 2).float() * (-math.log(10000.0) / embedding_dim))
-#         self.encoding[:, 0::2] = torch.sin(position * div_term)
-#         self.encoding[:, 1::2] = torch.cos(position * div_term)
-#         self.encoding = self.encoding.unsqueeze(0)
-
-#     def forward(self, x):
-#         seq_len = x.size(1)
-#         return x + self.encoding[:, :seq_len, :].to(x.device)
