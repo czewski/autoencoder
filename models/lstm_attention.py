@@ -2,10 +2,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import math
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, embedding_dim, max_len=5000):
+    def __init__(self, embedding_dim, max_len=100):
         super(PositionalEncoding, self).__init__()
         self.encoding = torch.zeros(max_len, embedding_dim)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -20,24 +22,17 @@ class PositionalEncoding(nn.Module):
 
 ## Self Attention // Dot product?
 class LSTMAttentionModel(nn.Module):
-    def __init__(self, n_items, hidden_size, embedding_dim, batch_size, n_layers=1, drop_prob=0.5):
+    def __init__(self, n_items, hidden_size, embedding_dim, batch_size, n_layers=1, drop_prob=0.1, max_len=5000):
       super(LSTMAttentionModel, self).__init__()
       self.batch_size = batch_size
       self.output_size = n_items
-      self.hidden_size = hidden_size
-      self.input_dim = hidden_size
-    
-      self.vocab_size = n_items
-      self.embedding_length = embedding_dim
-
-      self.n_layers = n_layers
-
+      self.input_dim = embedding_dim
+  
       ## Embeddings
       self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
-      self.dropout = nn.Dropout(0.1)
+      self.dropout = nn.Dropout(drop_prob)
 
       # Positional Encoding
-      max_len = 5000
       self.positional_encoding = PositionalEncoding(embedding_dim, max_len)
 
       ## RNN
@@ -61,18 +56,24 @@ class LSTMAttentionModel(nn.Module):
       #   score = score.masked_fill(padding_mask.unsqueeze(1) == 0, float('-inf'))
 
       attention = self.softmax(score)
+      # print(attention.size())
+      # print(values.size())
+
       weighted = torch.bmm(attention, values)
       return weighted
 
-    def forward(self, x, lens):
+    def forward(self, x, lengths):
       x = x.long()
       embs = self.dropout(self.embedding(x))
       embs = self.positional_encoding(embs)  # Apply positional encoding
-  
-      output, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
-      lstm_out = output.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
 
-      #padding_mask = (lstm_out != 0).unsqueeze(-2)
+      #Pack pad
+      embs = pack_padded_sequence(embs, lengths)
+      lstm_out, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
+      lstm_out, lengths = pad_packed_sequence(lstm_out)
+      lstm_out = lstm_out.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
+
+      padding_mask = (lstm_out != 0)#.unsqueeze(-2)
 
       attn_output = self.attention_net(lstm_out) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)

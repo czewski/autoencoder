@@ -28,15 +28,16 @@ parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset 
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--hidden_size', type=int, default=100, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=100, help='the dimension of item embedding')
-parser.add_argument('--epoch', type=int, default=100, help='the number of epochs to train for')
+parser.add_argument('--epoch', type=int, default=10, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')  
-parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
+parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate') #lr * lr_dc
 parser.add_argument('--lr_dc_step', type=int, default=80, help='the number of steps after which the learning rate decay') 
 parser.add_argument('--test', action='store_true', help='test')
 parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
+parser.add_argument('--max_len', type=float, default=15, help='max length of sequence')
 args = parser.parse_args()
-print(args)
+#print(args)
 
 MODEL_VARIATION = "LSTM_ATT_"
 here = os.path.dirname(os.path.abspath(__file__))
@@ -46,7 +47,7 @@ def main():
     torch.manual_seed(42)
 
     print('Loading data...')
-    train, valid, test = dataset.load_data_narm(args.dataset_path, valid_portion=args.valid_portion, maxlen=19)
+    train, valid, test = dataset.load_data_narm(args.dataset_path, valid_portion=args.valid_portion, maxlen=args.max_len)
     
     train_data = dataset.RecSysDatasetNarm(train)
     valid_data = dataset.RecSysDatasetNarm(valid)
@@ -74,6 +75,7 @@ def main():
     # Info
     losses = []
     valid_losses = []
+    valid_recall, valid_mrr, valid_hit = 0,0,0
     now = datetime.now()
     now_time = time.time()
     timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
@@ -116,7 +118,7 @@ def main():
 
     # Save test metrics to stats
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time)]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
