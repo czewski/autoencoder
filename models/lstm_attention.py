@@ -27,6 +27,7 @@ class LSTMAttentionModel(nn.Module):
       self.batch_size = batch_size
       self.output_size = n_items
       self.input_dim = embedding_dim
+      self.hidden_size = hidden_size
   
       ## Embeddings
       self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
@@ -44,21 +45,21 @@ class LSTMAttentionModel(nn.Module):
       self.value = nn.Linear(hidden_size, hidden_size)
       self.softmax = nn.Softmax(dim=2) #dim=2 ##Why dimension 2?
       
-    def attention_net(self, lstm_output, ): #padding_mask
+
+    # F.scaled_dot_product_attention(query, key, value)  
+    def attention_net(self, lstm_output, padding_mask): 
       queries = self.query(lstm_output)
       keys = self.key(lstm_output)
       values = self.value(lstm_output)
 
-      score = torch.bmm(queries, keys.transpose(1, 2))/(self.input_dim**0.5) #keys.transpose(0, 1)
+      # Scaled dot-product attention  // factor was self.input_dim
+      score = torch.bmm(queries, keys.transpose(1, 2))/(self.hidden_size**0.5) #keys.transpose(0, 1)
 
-      # if padding_mask is not None:
-      #   # Apply the padding mask (masking out the padding tokens by setting their scores to -inf)
-      #   score = score.masked_fill(padding_mask.unsqueeze(1) == 0, float('-inf'))
+      # Apply the padding mask (masking out the padding tokens by setting their scores to -inf)
+      if padding_mask is not None:
+        score = score.masked_fill(padding_mask.unsqueeze(1) == 0, float('-inf'))
 
       attention = self.softmax(score)
-      # print(attention.size())
-      # print(values.size())
-
       weighted = torch.bmm(attention, values)
       return weighted
 
@@ -73,9 +74,10 @@ class LSTMAttentionModel(nn.Module):
       lstm_out, lengths = pad_packed_sequence(lstm_out)
       lstm_out = lstm_out.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
 
-      padding_mask = (lstm_out != 0)#.unsqueeze(-2)
+    #  padding_mask = (lstm_out != 0)#.unsqueeze(-2)
+      padding_mask = (torch.sum(lstm_out, dim=-1) != 0) 
 
-      attn_output = self.attention_net(lstm_out) 
+      attn_output = self.attention_net(lstm_out, padding_mask) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
 
       # There's gotta be a better way to do this, maybe we can even introduce some more linear layers in here? 
