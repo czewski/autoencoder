@@ -44,8 +44,10 @@ class LSTMAttentionModel(nn.Module):
       self.key = nn.Linear(hidden_size, hidden_size) 
       self.value = nn.Linear(hidden_size, hidden_size)
       self.softmax = nn.Softmax(dim=2) #dim=2 ##Why dimension 2?
-      
 
+      # Linear layer to map from hidden size to embedding size
+      self.hidden_to_embedding = nn.Linear(hidden_size, embedding_dim)
+      
     # F.scaled_dot_product_attention(query, key, value)  
     def attention_net(self, lstm_output, padding_mask): 
       queries = self.query(lstm_output)
@@ -80,8 +82,11 @@ class LSTMAttentionModel(nn.Module):
       attn_output = self.attention_net(lstm_out, padding_mask) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
 
+      # Linear layer to map from hidden size to embedding size
+      attn_output = self.hidden_to_embedding(attn_output)  # (batch_size, embedding_dim)
+
       # There's gotta be a better way to do this, maybe we can even introduce some more linear layers in here? 
-      item_embs = self.embedding(torch.arange(self.output_size).to(x.device))  # Ensure the tensor is on the same device
+      item_embs = self.embedding(torch.arange(self.output_size).to(x.device))  
       scores = torch.matmul(attn_output, item_embs.transpose(0, 1))
       return scores
 

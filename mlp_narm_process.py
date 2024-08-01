@@ -118,7 +118,7 @@ def main():
 
     # Save test metrics to stats
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
