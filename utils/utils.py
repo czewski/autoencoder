@@ -38,7 +38,7 @@ def collate_fn_no_target(data):
     #mask = utils.create_matrix_mask(len(seq), 20, lens)
     #outputs = outputs * mask
 
-def collate_fn_narm(data):
+def collate_fn_narm(data, max_len=15):
     """This function will be used to pad the sessions to max length
        in the batch and transpose the batch from 
        batch_size x max_seq_len to max_seq_len x batch_size.
@@ -48,7 +48,7 @@ def collate_fn_narm(data):
     data.sort(key=lambda x: len(x[0]), reverse=True)
     lens = [len(sess) for sess, label in data]
     labels = []
-    padded_sesss = torch.zeros(len(data), 19).long() #max(lens)
+    padded_sesss = torch.zeros(len(data), max_len).long() #max(lens)
     for i, (sess, label) in enumerate(data):
         padded_sesss[i,:lens[i]] = torch.LongTensor(sess)
         labels.append(label)
@@ -67,3 +67,19 @@ def create_matrix_mask(rows, max_size, x):
     
     return mask
 
+class EarlyStopper:
+    def __init__(self, patience=1, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.min_validation_loss = float('inf')
+
+    def early_stop(self, validation_loss):
+        if validation_loss < self.min_validation_loss:
+            self.min_validation_loss = validation_loss
+            self.counter = 0
+        elif validation_loss > (self.min_validation_loss + self.min_delta):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False

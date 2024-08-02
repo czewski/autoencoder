@@ -18,6 +18,7 @@ import os
 import time
 import argparse
 from tqdm import tqdm
+import pandas as pd
 
 #Local
 from utils import utils, dataset, probability_metrics
@@ -45,6 +46,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def main():
     torch.manual_seed(522)
+    np.random.seed(522)
 
     print('Loading data...')
     train, valid, test = dataset.load_data_narm(args.dataset_path, valid_portion=args.valid_portion, maxlen=args.max_len)
@@ -71,11 +73,13 @@ def main():
     optimizer = optim.Adam(model.parameters(), args.lr, weight_decay=1e-5) 
     criterion = nn.CrossEntropyLoss()
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
+    early_stopper = utils.EarlyStopper(patience=10, min_delta=10)
 
     # Info
     losses = []
     valid_losses = []
     valid_recall, valid_mrr, valid_hit = 0,0,0
+    best_valid_loss = float('inf')
     now = datetime.now()
     now_time = time.time()
     timestamp = now.strftime("%d_%m_%Y_%H:%M:%S")
@@ -86,18 +90,25 @@ def main():
         scheduler.step() # epoch = epoch
         losses.append(epoch_loss)
 
-        # Validation        
+        # Validation       
         valid_recall, valid_mrr, valid_hit, valid_loss = validate(valid_loader, model, criterion)
         valid_losses.append(valid_loss)
         print('Epoch {} validation: Recall@20: {:.4f}, MRR@20: {:.4f}, HIT@20: {:.4f}, Validation loss: {:.4f} \n'.format(epoch, valid_recall, valid_mrr, valid_hit, valid_loss))
 
-        # Save checkpoint
-        ckpt_dict = {
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-        }
-        torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+        # Checkpoint
+        if valid_loss < best_valid_loss:
+            best_valid_loss = valid_loss
+            print('hit')
+            ckpt_dict = {
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }
+            torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
+        
+        # Patience
+        if early_stopper.early_stop(valid_loss):             
+            break
 
     # Loss curve
     print('--------------------------------')
