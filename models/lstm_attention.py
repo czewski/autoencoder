@@ -22,7 +22,7 @@ class PositionalEncoding(nn.Module):
 
 ## Self Attention // Dot product?
 class LSTMAttentionModel(nn.Module):
-    def __init__(self, n_items, hidden_size, embedding_dim, batch_size, n_layers=1, drop_prob=0.25, max_len=5000):
+    def __init__(self, embedding_matrix, n_items, hidden_size, embedding_dim, batch_size, n_layers=1, drop_prob=0.25, max_len=5000):
       super(LSTMAttentionModel, self).__init__()
       self.batch_size = batch_size
       self.output_size = n_items
@@ -30,7 +30,8 @@ class LSTMAttentionModel(nn.Module):
       self.hidden_size = hidden_size
   
       ## Embeddings
-      self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
+      self.embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True, padding_idx=0)
+      #self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
       self.dropout = nn.Dropout(drop_prob)
 
       # Positional Encoding
