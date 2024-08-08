@@ -7,6 +7,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
 #Utils
+from gensim.models import Word2Vec
 import argparse
 from tqdm import tqdm
 import time
@@ -27,16 +28,16 @@ from models import mlp_narm, lstm_narm, lstm_attention
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
-parser.add_argument('--hidden_size', type=int, default=100, help='hidden state size of gru module')
+parser.add_argument('--hidden_size', type=int, default=150, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
 parser.add_argument('--epoch', type=int, default=30, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
+parser.add_argument('--lr', type=float, default=0.0001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate') #lr * lr_dc
 parser.add_argument('--lr_dc_step', type=int, default=25, help='the number of steps after which the learning rate decay') 
-parser.add_argument('--test', action='store_true', help='test')
 parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
 parser.add_argument('--max_len', type=float, default=15, help='max length of sequence')
+parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
 args = parser.parse_args()
 #print(args)
 
@@ -64,20 +65,28 @@ def main():
         n_items = 37484
     else:
         raise Exception('Unknown Dataset!')
+    
+    ## Load Embedding Matrix
+    item2vec_model = Word2Vec.load("embeddings/item2vec_06_08.model")
+    item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
+    embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
+    embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+    #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
 
+    print(len(item_embeddings))
+    print(item2vec_model.wv)
 
     #model = mlp_narm.MLP(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
     #model = lstm_narm.LSTM(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
-    model = lstm_attention.LSTMAttentionModel(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
+    model = lstm_attention.LSTMAttentionModel(embedding_matrix, n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
 
-    optimizer = optim.Adam(model.parameters(), args.lr, weight_decay=1e-5) 
+    optimizer = optim.Adam(model.parameters(), args.lr, args.weight_decay) 
     criterion = nn.CrossEntropyLoss()
     scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
-    early_stopper = utils.EarlyStopper(patience=10, min_delta=10)
+    early_stopper = utils.EarlyStopper(patience=5, min_delta=10)
 
     # Info
-    losses = []
-    valid_losses = []
+    losses, valid_losses = [], []
     valid_recall, valid_mrr, valid_hit = 0,0,0
     best_valid_loss = float('inf')
     now = datetime.now()
@@ -93,12 +102,12 @@ def main():
         # Validation       
         valid_recall, valid_mrr, valid_hit, valid_loss = validate(valid_loader, model, criterion)
         valid_losses.append(valid_loss)
-        print('Epoch {} validation: Recall@20: {:.4f}, MRR@20: {:.4f}, HIT@20: {:.4f}, Validation loss: {:.4f} \n'.format(epoch, valid_recall, valid_mrr, valid_hit, valid_loss))
+        print(f"Epoch {epoch} validation: Recall@20: {valid_recall:.4f}, MRR@20: {valid_mrr:.4f}, HIT@20: {valid_hit:.4f}, Validation loss: {valid_loss:.4f} \n")
 
         # Checkpoint
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
-            print('hit')
+
             ckpt_dict = {
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
@@ -107,10 +116,11 @@ def main():
             torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
         
         # Patience
-        if early_stopper.early_stop(valid_loss):             
+        if early_stopper.early_stop(valid_loss):    
+            print(f"Early stop in epoch {epoch}!")         
             break
 
-    # Loss curve
+    # Plot losses
     print('--------------------------------')
     print('Plotting loss curve...')
     plt.clf()
@@ -125,11 +135,11 @@ def main():
     ckpt = torch.load('checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
     model.load_state_dict(ckpt['state_dict'])
     test_recall, test_mrr, test_hit, _ = validate(test_loader, model, criterion)
-    print("Test: Recall@20: {:.4f}, MRR@20: {:.4f}, HIT@20: {:.4f}".format(test_recall, test_mrr, test_hit))
+    print(f"Test: Recall@20: {test_recall:.4f}, MRR@20: {test_mrr:.4f}, HIT@20: {test_hit:.4f}, Best Epoch: {ckpt['epoch']}")
 
-    # Save test metrics to stats
+    # Save metrics
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size, args.embed_dim, args.weight_decay]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
@@ -155,9 +165,7 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
         #iter_num = epoch * len(train_loader) + i + 1
 
         if i % log_aggr == 0:
-            print('[TRAIN] epoch %d/%d batch loss: %.4f (avg %.4f) (%.2f im/s)'
-                % (epoch + 1, num_epochs, loss_val, sum_epoch_loss / (i + 1),
-                  len(seq) / (time.time() - start)))
+            print(f"[TRAIN] epoch {epoch + 1}/{num_epochs} batch loss: {loss_val:.4f} (avg {sum_epoch_loss / (i + 1):.4f}) ({len(seq) / (time.time() - start):.2f} im/s)")
 
         start = time.time()
     
@@ -168,9 +176,7 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
 def validate(valid_loader, model, criterion):
     model.eval()
     sum_valid_loss = 0
-    recalls = []
-    mrrs = []
-    hits = []
+    recalls, mrrs, hits = [], [], []
     with torch.no_grad():
         for seq, target, lens in tqdm(valid_loader):
             seq = seq.to(device)
