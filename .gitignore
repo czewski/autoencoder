@@ -5,7 +5,9 @@
 /checkpoints
 *.png
 *.json
-item2vec*
+*.model
+*.npy
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
