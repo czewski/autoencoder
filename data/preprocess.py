@@ -23,14 +23,8 @@ import os
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', default='diginetica', help='dataset name')
+parser.add_argument('--dataset', default='yoochoose', help='dataset name')
 args = parser.parse_args()
-
-# add a header for yoochoose dataset
-# with open('yoochoose-clicks.dat', 'r') as f, open('yoochoose-clicks-withHeader.dat', 'w') as fn:
-#     fn.write('sessionId,timestamp,itemId,category'+'\n')
-#     for line in f:
-#         fn.write(line)
 
 if args.dataset == 'diginetica':
     dataset = 'train-item-views.csv'
