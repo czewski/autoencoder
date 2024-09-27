@@ -26,30 +26,49 @@ from utils import utils, dataset, probability_metrics
 from models import mlp_narm, lstm_narm, lstm_attention
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: datasets/diginetica/yoochoose1_4/yoochoose1_64')
+parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: data/diginetica/yoochoose1_4/yoochoose1_64')
+
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--hidden_size', type=int, default=150, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
-parser.add_argument('--epoch', type=int, default=30, help='the number of epochs to train for')
+parser.add_argument('--epoch', type=int, default=1, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.0001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate') #lr * lr_dc
 parser.add_argument('--lr_dc_step', type=int, default=25, help='the number of steps after which the learning rate decay') 
+
 parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
 parser.add_argument('--max_len', type=float, default=15, help='max length of sequence')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
+
+parser.add_argument('--alignment_function', type=str, default='sdp', help='sdp, dp, additive, concat, biased_general, general, similarity')
+parser.add_argument('--pos_enc', type=bool, default=True, help='True to activate posistional encoding')
+parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
+#parser.add_argument('--', type=float, default=1e-5, help='regularization l2')
 args = parser.parse_args()
 #print(args)
 
-MODEL_VARIATION = "LSTM_ATT_"
+torch.manual_seed(522)
+np.random.seed(522)
 here = os.path.dirname(os.path.abspath(__file__))
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def main():
-    torch.manual_seed(522)
-    np.random.seed(522)
+if args.dataset_path.split('/')[-2] == 'diginetica':
+    datasetname = 'diginetica'
+    n_items = 43098
+elif args.dataset_path.split('/')[-2] in 'yoochoose1_64':
+    datasetname = 'yoochoose164'
+    n_items = 37484
+elif args.dataset_path.split('/')[-2] in 'yoochoose1_4':
+    datasetname = 'yoochoose14'
+    n_items = 37484
+else:
+    raise Exception('Unknown Dataset!')
+    
+MODEL_VARIATION = datasetname + "_LSTM_ATT_"
 
-    print('Loading data...')
+def main():
+    print(f'Loading data for dataset {args.dataset_path} and model variation {MODEL_VARIATION}!')
     train, valid, test = dataset.load_data_narm(args.dataset_path, valid_portion=args.valid_portion, maxlen=args.max_len)
     
     train_data = dataset.RecSysDatasetNarm(train)
@@ -59,31 +78,38 @@ def main():
     valid_loader = DataLoader(valid_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
 
-    if args.dataset_path.split('/')[-2] == 'diginetica':
-        n_items = 43098
-    elif args.dataset_path.split('/')[-2] in ['yoochoose1_64', 'yoochoose1_4']:
-        n_items = 37484
-    else:
-        raise Exception('Unknown Dataset!')
-    
+
+
     ## Load Embedding Matrix
-    item2vec_model = Word2Vec.load("embeddings/item2vec_06_08.model")
-    item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
-    embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
-    embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+    # item2vec_model = Word2Vec.load("embeddings/item2vec_06_08.model")
+    # item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
+    # embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
+    # embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
     #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
 
-    print(len(item_embeddings))
-    print(item2vec_model.wv)
+    # print(len(item_embeddings))
+    # print(item2vec_model.wv)
 
-    #model = mlp_narm.MLP(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
-    #model = lstm_narm.LSTM(n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
-    model = lstm_attention.LSTMAttentionModel(embedding_matrix, n_items, args.hidden_size, args.embed_dim, args.batch_size).to(device) 
+    #embedding_matrix
+    model = lstm_attention.LSTMAttentionModel(n_items, 
+                                              args.hidden_size, 
+                                              args.embed_dim, 
+                                              args.batch_size,
+                                              args.alignment_function,
+                                              args.pos_enc).to(device) 
 
-    optimizer = optim.Adam(model.parameters(), args.lr, args.weight_decay) 
+    optimizer = optim.Adam(params=model.parameters(), 
+                           lr=args.lr, 
+                           weight_decay=args.weight_decay) 
+    
     criterion = nn.CrossEntropyLoss()
-    scheduler = StepLR(optimizer, step_size = args.lr_dc_step, gamma = args.lr_dc)
-    early_stopper = utils.EarlyStopper(patience=5, min_delta=10)
+
+    scheduler = StepLR(optimizer, 
+                       step_size = args.lr_dc_step, 
+                       gamma = args.lr_dc)
+    
+    early_stopper = utils.EarlyStopper(patience=5, 
+                                       min_delta=10)
 
     # Info
     losses, valid_losses = [], []
