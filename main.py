@@ -23,7 +23,7 @@ import pandas as pd
 
 #Local
 from utils import utils, dataset, probability_metrics
-from models import mlp_narm, lstm_narm, lstm_attention
+from models import mlp_narm, lstm_narm, lstm_attention, knn
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: data/diginetica/yoochoose1_4/yoochoose1_64')
@@ -31,7 +31,7 @@ parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset 
 parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--hidden_size', type=int, default=150, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
-parser.add_argument('--epoch', type=int, default=1, help='the number of epochs to train for')
+parser.add_argument('--epoch', type=int, default=5, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.0001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate') #lr * lr_dc
 parser.add_argument('--lr_dc_step', type=int, default=25, help='the number of steps after which the learning rate decay') 
@@ -43,6 +43,7 @@ parser.add_argument('--weight_decay', type=float, default=1e-5, help='regulariza
 
 parser.add_argument('--alignment_function', type=str, default='sdp', help='sdp, dp, additive, concat, biased_general, general, similarity')
 parser.add_argument('--pos_enc', type=bool, default=True, help='True to activate posistional encoding')
+parser.add_argument('--knn', type=bool, default=True, help='True to activate knn layer')
 parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
 #parser.add_argument('--', type=float, default=1e-5, help='regularization l2')
 args = parser.parse_args()
@@ -81,14 +82,18 @@ def main():
 
 
     ## Load Embedding Matrix
-    # item2vec_model = Word2Vec.load("embeddings/item2vec_06_08.model")
-    # item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
-    # embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
-    # embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+    item2vec_model = Word2Vec.load("embeddings/item2vec_06_08.model")
+    item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
+    embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
+    embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
     #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
 
     # print(len(item_embeddings))
     # print(item2vec_model.wv)
+
+    knn_helper = knn.KNNHelper
+    if args.knn:
+        data_embs = embedding_matrix
 
     #embedding_matrix
     model = lstm_attention.LSTMAttentionModel(n_items, 
@@ -96,7 +101,9 @@ def main():
                                               args.embed_dim, 
                                               args.batch_size,
                                               args.alignment_function,
-                                              args.pos_enc).to(device) 
+                                              args.pos_enc,
+                                              data_embeddings=data_embs,
+                                              knn_helper=knn_helper).to(device) 
 
     optimizer = optim.Adam(params=model.parameters(), 
                            lr=args.lr, 
