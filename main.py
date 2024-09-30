@@ -44,6 +44,7 @@ parser.add_argument('--weight_decay', type=float, default=1e-5, help='regulariza
 parser.add_argument('--alignment_function', type=str, default='sdp', help='sdp, dp, additive, concat, biased_general, general, similarity')
 parser.add_argument('--pos_enc', type=bool, default=True, help='True to activate posistional encoding')
 parser.add_argument('--knn', type=bool, default=True, help='True to activate knn layer')
+parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec_06_08, ')
 parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
 #parser.add_argument('--', type=float, default=1e-5, help='regularization l2')
 args = parser.parse_args()
@@ -79,30 +80,26 @@ def main():
     valid_loader = DataLoader(valid_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
 
+    knn_helper, embedding_matrix = None, None
+    if args.embeddings != 'random': ## Load Embedding Matrix
+        item2vec_model = Word2Vec.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
+        item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
+        embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
+        embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+        #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
+        # print(len(item_embeddings))
+        # print(item2vec_model.wv)
 
+        if args.knn: #KNN needs embeddings
+            knn_helper = knn.KNNHelper
 
-    ## Load Embedding Matrix
-    item2vec_model = Word2Vec.load("embeddings/item2vec_06_08.model")
-    item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
-    embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
-    embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
-    #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
-
-    # print(len(item_embeddings))
-    # print(item2vec_model.wv)
-
-    knn_helper = knn.KNNHelper
-    if args.knn:
-        data_embs = embedding_matrix
-
-    #embedding_matrix
     model = lstm_attention.LSTMAttentionModel(n_items, 
                                               args.hidden_size, 
                                               args.embed_dim, 
                                               args.batch_size,
                                               args.alignment_function,
                                               args.pos_enc,
-                                              data_embeddings=data_embs,
+                                              data_embeddings=embedding_matrix,
                                               knn_helper=knn_helper).to(device) 
 
     optimizer = optim.Adam(params=model.parameters(), 

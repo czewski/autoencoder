@@ -3,7 +3,6 @@ import torch.nn.functional as F
 import torch
 import math
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class PositionalEncoding(nn.Module):
@@ -39,7 +38,7 @@ def find_closest_tensor(query_embeddings, data_embeddings):
 
 ## Self Attention // Dot product?
 class LSTMAttentionModel(nn.Module): #embedding_matrix
-    def __init__(self, n_items, hidden_size, embedding_dim, batch_size, alignment_func, pos_enc, data_embeddings, knn_helper, n_layers=1, drop_prob=0.25, max_len=5000):
+    def __init__(self, n_items, hidden_size, embedding_dim, batch_size, alignment_func, pos_enc, embedding_matrix, knn_helper, n_layers=1, drop_prob=0.25, max_len=5000):
       super(LSTMAttentionModel, self).__init__()
       self.batch_size = batch_size
       self.output_size = n_items
@@ -48,18 +47,21 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       self.alignment_func = alignment_func
       self.pos_enc = pos_enc
 
-      # KNN
-      self.use_knn = True
-      self.knn_helper = knn_helper
-      self.data_embeddings = data_embeddings 
+      ## KNN
+      if knn_helper is not None:
+        self.knn_helper = knn_helper
+        self.data_embeddings = embedding_matrix 
   
       ## Embeddings
-      #self.embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True, padding_idx=0)
-      self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
+      if embedding_matrix is not None:
+        self.embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True, padding_idx=0)
+      else: 
+        self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
       self.dropout = nn.Dropout(drop_prob)
 
       # Positional Encoding
-      self.positional_encoding = PositionalEncoding(embedding_dim, max_len)
+      if self.pos_enc:
+        self.positional_encoding = PositionalEncoding(embedding_dim, max_len)
 
       ## RNN
       self.lstm = nn.LSTM(embedding_dim, hidden_size, n_layers, batch_first = False)  ##Em algum momento testei com emb*19 e batch_first = true
@@ -131,14 +133,10 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       lstm_out, lengths = pad_packed_sequence(lstm_out)
       lstm_out = lstm_out.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
 
-      #padding_mask = (lstm_out != 0)#.unsqueeze(-2)
       padding_mask = (torch.sum(lstm_out, dim=-1) != 0) 
-
       attn_output = self.attention_net(lstm_out, padding_mask) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
-
-      # Linear layer to map from hidden size to embedding size
-      attn_output = self.hidden_to_embedding(attn_output)  # (batch_size, embedding_dim)
+      attn_output = self.hidden_to_embedding(attn_output)  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
 
       if self.use_knn: # maybe also need to add a % of the tensor...
         closest_tensor = find_closest_tensor(initial_embs, self.data_embeddings)  # Use KNN to find the closest tensor in the dataset  
