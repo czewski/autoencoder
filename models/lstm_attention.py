@@ -126,15 +126,14 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
 
       if self.pos_enc: 
         embs = self.positional_encoding(embs)  # Apply positional encoding
+      else: #Pack pad
+        embs = pack_padded_sequence(embs, lengths)
+        embs, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
+        embs, lengths = pad_packed_sequence(embs)
+        embs = embs.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
 
-      #Pack pad
-      embs = pack_padded_sequence(embs, lengths)
-      lstm_out, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
-      lstm_out, lengths = pad_packed_sequence(lstm_out)
-      lstm_out = lstm_out.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
-
-      padding_mask = (torch.sum(lstm_out, dim=-1) != 0) 
-      attn_output = self.attention_net(lstm_out, padding_mask) 
+      padding_mask = (torch.sum(embs, dim=-1) != 0) 
+      attn_output = self.attention_net(embs, padding_mask) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
       attn_output = self.hidden_to_embedding(attn_output)  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
 
