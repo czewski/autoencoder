@@ -169,7 +169,7 @@ def main():
 
     # Save metrics
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size, args.embed_dim, args.weight_decay]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size, args.embed_dim, args.weight_decay,datasetname, args.epoch, args.topk, args.max_len, args.alignment_function, args.pos_enc, args.knn, args.embeddings, args.folds]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
