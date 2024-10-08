@@ -26,26 +26,27 @@ class MultiHeadAttention(nn.Module):
           self.W1 = nn.Linear(self.head_dim, self.head_dim).to(device) 
           self.W2 = nn.Linear(self.head_dim, self.head_dim).to(device) 
 
-        if alignment_func == 'concat':
+        elif alignment_func == 'concat':
           self.W_concat = nn.Linear(self.head_dim * 2, self.head_dim).to(device)
 
-        if alignment_func == 'general' or alignment_func == 'biased_general':
-           self.W1 = nn.Linear(self.head_dim, self.hidden_size).to(device) 
-           self.W2 = nn.Linear(self.hidden_size, self.head_dim).to(device) 
+        elif alignment_func == 'biased_general':
+           self.W1 = nn.Linear(self.head_dim, self.head_dim, bias=True).to(device) 
 
-
+        elif alignment_func == 'general':
+           self.W1 = nn.Linear(self.head_dim, self.head_dim, bias=False).to(device) 
+           
     def forward(self, lstm_output, padding_mask):
         batch_size = lstm_output.size(0)
-        # Linear projections
+
+        ## Linear projections
         queries = self.query(lstm_output)
         keys = self.key(lstm_output)
         values = self.value(lstm_output)
-
         queries = queries.reshape(batch_size * self.num_heads, -1, self.head_dim)
         keys = keys.reshape(batch_size * self.num_heads, -1, self.head_dim)
         values = values.reshape(batch_size * self.num_heads, -1, self.head_dim)
 
-        ## Alignment Functions (sdp, dp, additive, concat, biased_general, general, similarity)
+        ## Alignment Functions
         if self.alignment_func == 'sdp': 
           score = torch.bmm(queries, keys.transpose(-1, -2))/(self.hidden_size**0.5) 
 
@@ -53,16 +54,12 @@ class MultiHeadAttention(nn.Module):
           score = torch.bmm(queries, keys.transpose(-1, -2))
 
         elif self.alignment_func == "general":
-          score = torch.bmm(queries, torch.matmul(keys, self.key.weight).transpose(-1, -2))
+          h1 = self.W1(keys).transpose(-1, -2)
+          score = torch.bmm(queries, h1)
 
         elif self.alignment_func == "biased_general":
-          print(queries.size())
-          print(self.key.bias.size())
-          p1 = self.W1(queries)
-
-          h1 = (p1 + self.key.bias).transpose(-1, -2)
-          wq = self.key.weight.view(self.hidden_size, self.head_dim)
-          score = torch.bmm(keys, torch.matmul(wq, h1))
+          h1 = self.W1(keys).transpose(-1, -2)
+          score = torch.bmm(queries, h1)
 
         elif self.alignment_func == "concat":
           score = torch.tanh(self.W_concat(torch.cat((queries, keys), dim=-1)))
@@ -72,10 +69,9 @@ class MultiHeadAttention(nn.Module):
           score = torch.tanh(self.W1(queries) + self.W2(keys))
           score = torch.bmm(score, values.transpose(-1, -2))
 
-        # if padding_mask is not None:
-        #     score = score.masked_fill(padding_mask.unsqueeze(1).unsqueeze(2) == 0, float('-inf'))
+        if padding_mask is not None:
+            score = score.masked_fill(padding_mask.unsqueeze(1).unsqueeze(2) == 0, float('-inf'))
 
-        print(score.size())
         attention = self.softmax(score) 
         weighted_values = torch.matmul(attention, values)  # (batch_size, num_heads, seq_len, head_dim)
         weighted_values = weighted_values.transpose(1, 2).contiguous().view(batch_size, -1, self.hidden_size)
