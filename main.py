@@ -41,9 +41,9 @@ parser.add_argument('--valid_portion', type=float, default=0.1, help='split the 
 parser.add_argument('--max_len', type=float, default=15, help='max length of sequence')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
 
-parser.add_argument('--alignment_function', type=str, default='sdp', help='sdp, dp, additive, concat, biased_general, general, similarity')
+parser.add_argument('--alignment_function', type=str, default='biased_general', help='sdp, dp, additive, concat, biased_general, general, similarity')
 parser.add_argument('--pos_enc', type=bool, default=True, help='True to activate posistional encoding')
-parser.add_argument('--knn', type=bool, default=True, help='True to activate knn layer')
+parser.add_argument('--knn', type=bool, default=False, help='True to activate knn layer')
 parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec_06_08, ')
 parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
 #parser.add_argument('--', type=float, default=1e-5, help='regularization l2')
@@ -99,8 +99,9 @@ def main():
                                               args.batch_size,
                                               args.alignment_function,
                                               args.pos_enc,
-                                              data_embeddings=embedding_matrix,
-                                              knn_helper=knn_helper).to(device) 
+                                              embedding_matrix=embedding_matrix, 
+                                              knn_helper=knn_helper,
+                                              num_heads=2).to(device) 
 
     optimizer = optim.Adam(params=model.parameters(), 
                            lr=args.lr, 
