@@ -76,7 +76,21 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       self.value = nn.Linear(hidden_size, hidden_size)
       self.softmax = nn.Softmax(dim=2) #dim=2 ##Why dimension 2?
 
+      if alignment_func == 'additive':
+        self.W1 = nn.Linear(hidden_size, hidden_size).to(device) 
+        self.W2 = nn.Linear(hidden_size, hidden_size).to(device) 
+
+      if alignment_func == 'concat':
+        self.W1 = nn.Linear(self.hidden_size * 2, self.hidden_size).to(device) 
+      
+      if alignment_func == 'biased_general':
+        self.W1 = nn.Linear(hidden_size, hidden_size, bias=True).to(device) 
+
+      if alignment_func == 'general':
+        self.W1 = nn.Linear(hidden_size, hidden_size, bias=False).to(device)          
+
       # Linear layer to map from hidden size to embedding size
+      self.embedding_to_hidden = nn.Linear(embedding_dim, hidden_size)
       self.hidden_to_embedding = nn.Linear(hidden_size, embedding_dim)
 
       self._initialize_weights()
@@ -109,26 +123,20 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
         score = torch.bmm(queries, keys.transpose(1, 2))
 
       elif self.alignment_func == "general":
-        # General attention: a(q, k) = q^T W k
-        W_k = self.key.weight
-        score = torch.bmm(queries, torch.matmul(keys, W_k).transpose(1, 2))
+        h1 = self.W1(keys).transpose(1, 2)
+        score = torch.bmm(queries, h1)
 
       elif self.alignment_func == "biased_general":
-        # Biased General attention: a(q, k) = k^T W (q + b)
-        bias = self.key.bias
-        W_k = self.key.weight
-        score = torch.bmm(keys, torch.matmul(W_k, (queries + bias).transpose(1, 2)))
+        h1 = self.W1(keys).transpose(1, 2)
+        score = torch.bmm(queries, h1)
 
       elif self.alignment_func == "concat":
-        W_concat = nn.Linear(self.hidden_size * 2, self.hidden_size).to(queries.device) 
         concat_input = torch.cat((queries, keys), dim=-1)
-        score = torch.tanh(W_concat(concat_input))
+        score = torch.tanh(self.W1(concat_input))
         score = torch.bmm(score, values.transpose(1, 2))
       
       elif self.alignment_func == "additive":
-        W1 = nn.Linear(self.hidden_size, self.hidden_size).to(queries.device) 
-        W2 = nn.Linear(self.hidden_size, self.hidden_size).to(keys.device) 
-        score = torch.tanh(W1(queries) + W2(keys))
+        score = torch.tanh(self.W1(queries) + self.W2(keys))
         score = torch.bmm(score, values.transpose(1, 2))
 
       # Apply the padding mask (masking out the padding tokens by setting their scores to -inf)
@@ -146,12 +154,13 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
 
       if self.pos_enc: 
         embs = self.positional_encoding(embs)  # Apply positional encoding
+        embs = self.embedding_to_hidden(embs) 
       else: #Pack pad
         embs = pack_padded_sequence(embs, lengths)
         embs, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
         embs, lengths = pad_packed_sequence(embs)
-        embs = embs.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
 
+      embs = embs.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
       padding_mask = (torch.sum(embs, dim=-1) != 0) 
       attn_output = self.attention_net(embs, padding_mask) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)

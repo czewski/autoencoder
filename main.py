@@ -38,10 +38,10 @@ parser.add_argument('--lr_dc_step', type=int, default=25, help='the number of st
 
 parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
-parser.add_argument('--max_len', type=float, default=15, help='max length of sequence')
+parser.add_argument('--max_len', type=int, default=15, help='max length of sequence')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
 
-parser.add_argument('--alignment_function', type=str, default='sdp', help='sdp, dp, additive, concat, biased_general, general, similarity')
+parser.add_argument('--alignment_function', type=str, default='general', help='sdp, dp, additive, concat, biased_general, general')
 parser.add_argument('--pos_enc', type=bool, default=False, help='True to activate posistional encoding')
 parser.add_argument('--knn', type=bool, default=True, help='True to activate knn layer')
 parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec_06_08, ')
