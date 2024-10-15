@@ -64,7 +64,7 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       self.dropout = nn.Dropout(drop_prob)
 
       # Positional Encoding
-      if self.pos_enc:
+      if self.pos_enc == "True":
         self.positional_encoding = PositionalEncoding(embedding_dim, max_len)
 
       ## RNN
@@ -152,7 +152,7 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       embs = self.dropout(self.embedding(x))
       initial_embs = embs.clone().detach()
 
-      if self.pos_enc: 
+      if self.pos_enc == "True": 
         embs = self.positional_encoding(embs)  # Apply positional encoding
         embs = self.embedding_to_hidden(embs) 
       else: #Pack pad
