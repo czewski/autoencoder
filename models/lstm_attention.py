@@ -171,8 +171,8 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       padding_mask = (torch.sum(embs, dim=-1) != 0) 
       attn_output = self.attention_net(embs, padding_mask) 
       attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
-      attn_output = self.hidden_to_embedding(attn_output)  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
-
+      attn_output = F.relu(self.hidden_to_embedding(attn_output))  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
+    
       if self.use_knn: # maybe also need to add a % of the tensor...
         closest_tensor = find_closest_tensor(initial_embs, self.data_embeddings)  # Use KNN to find the closest tensor in the dataset  
         closest_tensor = torch.mean(closest_tensor, dim=0) 
