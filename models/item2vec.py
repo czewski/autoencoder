@@ -6,21 +6,23 @@ import numpy as np
 import pickle
 from utils import dataset
 
+# diginetica -> 43099
+# yoochoose -> 37485
+
 ## Train word2vec model
-root = "data/diginetica/"
+root = "data/diginetica/" #yoochoose1_4 #diginetica
 train, valid, test = dataset.load_data_narm(root, valid_portion=0.1, maxlen=15)
 embedding_dim = 50
 item2vec_model = Word2Vec(train[0], vector_size=embedding_dim, window=10, 
-                          min_count=1, sg=1, seed=522, epochs=25)
-item2vec_model.save("embeddings/item2vec_05_08.model")
+                          min_count=1, sg=1, seed=522, epochs=50)
+item2vec_model.save("embeddings/diginetica/item2vec.model")
 
 
-## Add missing ids to word2vec model
-# Assuming you have a Word2Vec model already trained
-# model = Word2Vec.load("embeddings/item2vec_05_08.model")
-# total_ids = set(range(43099))
-# trained_ids = set(int(key) for key in model.wv.key_to_index.keys())
-# missing_ids = total_ids - trained_ids
+# Add missing ids to word2vec model
+model = Word2Vec.load("embeddings/diginetica/item2vec.model")
+total_ids = set(range(43099))
+trained_ids = set(int(key) for key in model.wv.key_to_index.keys())
+missing_ids = total_ids - trained_ids
 
 # print(missing_ids)
 
@@ -29,8 +31,8 @@ item2vec_model.save("embeddings/item2vec_05_08.model")
 #     random_vector = np.random.randn(vector_size)
 #     model.wv.add_vector(missing_id, random_vector)
 
-# # Save the updated model
-# model.save("embeddings/item2vec_06_08.model")
+# Save the updated model
+model.save("embeddings/diginetica/item2vec.model")
 
 
 ## Create weight matrix
