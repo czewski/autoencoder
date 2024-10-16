@@ -64,7 +64,7 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       self.dropout = nn.Dropout(drop_prob)
 
       # Positional Encoding
-      if self.pos_enc == "True":
+      if self.pos_enc == "True" or "Both":
         self.positional_encoding = PositionalEncoding(embedding_dim, max_len)
 
       ## RNN
@@ -160,7 +160,12 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
         embs, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
         embs, lengths = pad_packed_sequence(embs)
       elif self.pos_enc == "Both": # LSTM + Pos_enc
-        print(self.pos_enc)
+        embs = self.positional_encoding(embs)  
+        embs = self.embedding_to_hidden(embs)
+        embs = self.hidden_to_embedding(embs)
+        embs = pack_padded_sequence(embs, lengths)
+        embs, _ = self.lstm(embs) 
+        embs, lengths = pad_packed_sequence(embs)
 
       embs = embs.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
       padding_mask = (torch.sum(embs, dim=-1) != 0) 

@@ -43,9 +43,9 @@ parser.add_argument('--max_len', type=int, default=15, help='max length of seque
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
 
 parser.add_argument('--alignment_function', type=str, default='general', help='sdp, dp, additive, concat, biased_general, general')
-parser.add_argument('--pos_enc', type=str, default="True", help='True to activate posistional encoding')
+parser.add_argument('--pos_enc', type=str, default="Both", help='True, False, Both')
 parser.add_argument('--knn', type=str, default="False", help='True to activate knn layer')
-parser.add_argument('--embeddings', type=str, default='glove', help='random, item2vec, glove')
+parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec, glove')
 parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
 args = parser.parse_args()
 print(args)
