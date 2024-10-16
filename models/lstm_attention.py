@@ -155,10 +155,12 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       if self.pos_enc == "True": 
         embs = self.positional_encoding(embs)  # Apply positional encoding
         embs = self.embedding_to_hidden(embs) 
-      else: #Pack pad
+      elif self.pos_enc == "False": #Pack pad
         embs = pack_padded_sequence(embs, lengths)
         embs, _ = self.lstm(embs) # _ = (final_hidden_state, final_cell_state)
         embs, lengths = pad_packed_sequence(embs)
+      elif self.pos_enc == "Both": # LSTM + Pos_enc
+        print(self.pos_enc)
 
       embs = embs.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
       padding_mask = (torch.sum(embs, dim=-1) != 0) 

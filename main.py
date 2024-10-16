@@ -8,6 +8,7 @@ from torch.optim.lr_scheduler import StepLR
 
 #Utils
 from gensim.models import Word2Vec
+from glove import Glove
 import argparse
 from tqdm import tqdm
 import time
@@ -44,7 +45,7 @@ parser.add_argument('--weight_decay', type=float, default=1e-5, help='regulariza
 parser.add_argument('--alignment_function', type=str, default='general', help='sdp, dp, additive, concat, biased_general, general')
 parser.add_argument('--pos_enc', type=str, default="True", help='True to activate posistional encoding')
 parser.add_argument('--knn', type=str, default="False", help='True to activate knn layer')
-parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec')
+parser.add_argument('--embeddings', type=str, default='glove', help='random, item2vec, glove')
 parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
 args = parser.parse_args()
 print(args)
@@ -80,7 +81,7 @@ def main():
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
 
     knn_helper, embedding_matrix = None, None
-    if args.embeddings != "random": ## Load Embedding Matrix
+    if args.embeddings == "item2vec": ## Load Embedding Matrix
         item2vec_model = Word2Vec.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
         item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
         embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
@@ -88,7 +89,19 @@ def main():
         #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
         # print(len(item_embeddings))
         # print(item2vec_model.wv)
+        if args.knn == "True": #KNN needs embeddings
+            knn_helper = knn.KNNHelper
 
+    if args.embeddings == "glove": 
+        glove_model = Glove.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
+        max_item_id = max(int(item) for item in glove_model.dictionary.keys())
+        embedding_dim = glove_model.word_vectors.shape[1]
+        embedding_matrix = np.zeros((max_item_id + 1, embedding_dim))
+        # Create the embedding matrix by mapping item IDs to GloVe vectors
+        for item, idx in glove_model.dictionary.items():
+            embedding_matrix[int(item)] = glove_model.word_vectors[idx]
+        embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+        
         if args.knn == "True": #KNN needs embeddings
             knn_helper = knn.KNNHelper
 
