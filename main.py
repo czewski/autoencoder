@@ -58,6 +58,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 if args.dataset_path.split('/')[-2] == 'diginetica':
     datasetname = 'diginetica'
+    datasetname1 = 'diginetica'
     n_items = 43098
 elif args.dataset_path.split('/')[-2] in 'yoochoose1_64':
     datasetname = 'yoochoose164'
@@ -85,7 +86,7 @@ def main():
 
     gpu_index, embedding_matrix = None, None
     if args.embeddings == "item2vec": ## Load Embedding Matrix
-        item2vec_model = Word2Vec.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
+        item2vec_model = Word2Vec.load("embeddings/"+datasetname1+"/"+args.embeddings+".model")
         item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
         np_embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
         embedding_matrix = torch.tensor(np_embedding_matrix, dtype=torch.float)
@@ -96,7 +97,7 @@ def main():
             gpu_index = faiss.index_cpu_to_gpu(res, 0, index)
 
     if args.embeddings == "glove": 
-        glove_model = Glove.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
+        glove_model = Glove.load("embeddings/"+datasetname1+"/"+args.embeddings+".model")
         max_item_id = max(int(item) for item in glove_model.dictionary.keys())
         embedding_dim = glove_model.word_vectors.shape[1]
         np_embedding_matrix = np.zeros((max_item_id + 1, embedding_dim))
@@ -210,7 +211,7 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
 
         loss = criterion(outputs, target)
         loss.backward()
-        
+
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
         optimizer.step() 
 
