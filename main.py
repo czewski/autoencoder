@@ -137,6 +137,7 @@ def main():
     # Info
     losses, valid_losses = [], []
     valid_recall, valid_mrr, valid_hit = 0,0,0
+    best_recall, best_mrr, best_hit, best_epoch = 0,0,0,0
     best_valid_loss = float('inf')
     now = datetime.now()
     now_time = time.time()
@@ -156,7 +157,7 @@ def main():
         # Checkpoint
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
-
+            best_recall, best_mrr, best_hit, best_epoch = valid_recall, valid_mrr, valid_hit, epoch
             ckpt_dict = {
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
@@ -188,7 +189,7 @@ def main():
 
     # Save metrics
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size, args.embed_dim, args.weight_decay,datasetname, args.epoch, args.topk, args.max_len, args.alignment_function, args.pos_enc, args.knn, args.embeddings, args.folds]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size, args.embed_dim, args.weight_decay,datasetname, args.epoch, args.topk, args.max_len, args.alignment_function, args.pos_enc, args.knn, args.embeddings, args.folds, best_recall, best_mrr, best_hit, best_epoch]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
