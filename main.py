@@ -43,9 +43,9 @@ parser.add_argument('--max_len', type=int, default=15, help='max length of seque
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
 
 parser.add_argument('--alignment_function', type=str, default='general', help='sdp, dp, additive, concat, biased_general, general')
-parser.add_argument('--pos_enc', type=str, default="Both", help='True, False, Both')
-parser.add_argument('--knn', type=str, default="False", help='True to activate knn layer')
-parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec, glove')
+parser.add_argument('--pos_enc', type=str, default="True", help='True, False, Both')
+parser.add_argument('--knn', type=str, default="True", help='True to activate knn layer')
+parser.add_argument('--embeddings', type=str, default='item2vec', help='random, item2vec, glove')
 parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
 args = parser.parse_args()
 print(args)
@@ -60,9 +60,11 @@ if args.dataset_path.split('/')[-2] == 'diginetica':
     n_items = 43098
 elif args.dataset_path.split('/')[-2] in 'yoochoose1_64':
     datasetname = 'yoochoose164'
+    datasetname1 = 'yoochoose1_64'
     n_items = 37484
 elif args.dataset_path.split('/')[-2] in 'yoochoose1_4':
     datasetname = 'yoochoose14'
+    datasetname1 = 'yoochoose1_4'
     n_items = 37484
 else:
     raise Exception('Unknown Dataset!')
