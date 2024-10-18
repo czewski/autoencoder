@@ -30,23 +30,23 @@ from models import mlp_narm, lstm_narm, lstm_attention, knn
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: data/diginetica/yoochoose1_4/yoochoose1_64')
 
-parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
+parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
 parser.add_argument('--hidden_size', type=int, default=150, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
-parser.add_argument('--epoch', type=int, default=5, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.0001, help='learning rate')  
+parser.add_argument('--epoch', type=int, default=50, help='the number of epochs to train for')
+parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate') #lr * lr_dc
-parser.add_argument('--lr_dc_step', type=int, default=25, help='the number of steps after which the learning rate decay') 
+parser.add_argument('--lr_dc_step', type=int, default=40, help='the number of steps after which the learning rate decay') 
 
 parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
 parser.add_argument('--max_len', type=int, default=15, help='max length of sequence')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
 
-parser.add_argument('--alignment_function', type=str, default='general', help='sdp, dp, additive, concat, biased_general, general')
-parser.add_argument('--pos_enc', type=str, default="True", help='True, False, Both')
-parser.add_argument('--knn', type=str, default="True", help='True to activate knn layer')
-parser.add_argument('--embeddings', type=str, default='item2vec', help='random, item2vec, glove')
+parser.add_argument('--alignment_function', type=str, default='sdp', help='sdp, dp, additive, concat, biased_general, general')
+parser.add_argument('--pos_enc', type=str, default="False", help='True, False, Both')
+parser.add_argument('--knn', type=str, default="False", help='True to activate knn layer')
+parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec, glove')
 parser.add_argument('--folds', type=int, default=5, help='number of folds for k-fold validation')
 args = parser.parse_args()
 print(args)
@@ -83,7 +83,7 @@ def main():
     valid_loader = DataLoader(valid_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
     test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
 
-    knn_helper, embedding_matrix = None, None
+    gpu_index, embedding_matrix = None, None
     if args.embeddings == "item2vec": ## Load Embedding Matrix
         item2vec_model = Word2Vec.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
         item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
@@ -200,12 +200,18 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
     for i, (seq, target, lens) in tqdm(enumerate(train_loader), total=len(train_loader)):
         seq = seq.to(device)
         target = target.to(device)
+
+        if (torch.any(torch.isnan(seq)))|(torch.any(torch.isnan(target))):
+            print("NaN values found in", epoch, i)
+            break
         
         optimizer.zero_grad()
         outputs = model(seq, lens)
 
         loss = criterion(outputs, target)
         loss.backward()
+        
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
         optimizer.step() 
 
         loss_val = loss.item()
