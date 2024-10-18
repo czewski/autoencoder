@@ -40,7 +40,7 @@ def find_closest_tensor(query_embeddings, data_embeddings):
 
 ## Self Attention // Dot product?
 class LSTMAttentionModel(nn.Module): #embedding_matrix
-    def __init__(self, n_items, hidden_size, embedding_dim, batch_size, alignment_func, pos_enc, embedding_matrix, knn_helper, n_layers=1, drop_prob=0.25, max_len=5000):
+    def __init__(self, n_items, hidden_size, embedding_dim, batch_size, alignment_func, pos_enc, embedding_matrix, index_faiss, n_layers=1, drop_prob=0.25, max_len=5000):
       super(LSTMAttentionModel, self).__init__()
       self.batch_size = batch_size
       self.output_size = n_items
@@ -51,10 +51,11 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       self.use_knn = False
 
       ## KNN
-      if knn_helper is not None:
+      if index_faiss is not None:
+        print("here")
         self.use_knn = True
-        self.knn_helper = knn_helper
-        self.data_embeddings = embedding_matrix 
+        self.index_faiss = index_faiss
+        #self.data_embeddings = embedding_matrix 
   
       ## Embeddings
       if embedding_matrix is not None:
@@ -174,10 +175,9 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       attn_output = F.relu(self.hidden_to_embedding(attn_output))  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
     
       if self.use_knn: # maybe also need to add a % of the tensor...
-        print("here")
-        closest_tensor = find_closest_tensor(initial_embs, self.data_embeddings)  # Use KNN to find the closest tensor in the dataset  
-        closest_tensor = torch.mean(closest_tensor, dim=0) 
-        #closest_tensor = torch.mul(closest_tensor, 0.25)
+        initial_embs = initial_embs.view(-1, initial_embs.size(-1))
+        indices = self.index_faiss.search(initial_embs.numpy().astype('float32'), 1)
+        closest_tensor = torch.mean(indices, dim=0) 
         attn_output = attn_output * closest_tensor
 
       # There's gotta be a better way to do this, maybe we can even introduce some more linear layers in here? 

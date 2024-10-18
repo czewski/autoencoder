@@ -21,6 +21,7 @@ import time
 import argparse
 from tqdm import tqdm
 import pandas as pd
+import faiss
 
 #Local
 from utils import utils, dataset, probability_metrics
@@ -86,26 +87,29 @@ def main():
     if args.embeddings == "item2vec": ## Load Embedding Matrix
         item2vec_model = Word2Vec.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
         item_embeddings = {item: item2vec_model.wv[item] for item in item2vec_model.wv.index_to_key}
-        embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
-        embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
-        #embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True)
-        # print(len(item_embeddings))
-        # print(item2vec_model.wv)
+        np_embedding_matrix = np.array([item_embeddings[item] for item in sorted(item_embeddings.keys())])
+        embedding_matrix = torch.tensor(np_embedding_matrix, dtype=torch.float)
         if args.knn == "True": #KNN needs embeddings
-            knn_helper = knn.KNNHelper
+            index = faiss.IndexFlatL2(args.embed_dim)
+            index.add(np_embedding_matrix)
+            res = faiss.StandardGpuResources()
+            gpu_index = faiss.index_cpu_to_gpu(res, 0, index)
 
     if args.embeddings == "glove": 
         glove_model = Glove.load("embeddings/"+datasetname+"/"+args.embeddings+".model")
         max_item_id = max(int(item) for item in glove_model.dictionary.keys())
         embedding_dim = glove_model.word_vectors.shape[1]
-        embedding_matrix = np.zeros((max_item_id + 1, embedding_dim))
-        # Create the embedding matrix by mapping item IDs to GloVe vectors
+        np_embedding_matrix = np.zeros((max_item_id + 1, embedding_dim))
+        
         for item, idx in glove_model.dictionary.items():
-            embedding_matrix[int(item)] = glove_model.word_vectors[idx]
-        embedding_matrix = torch.tensor(embedding_matrix, dtype=torch.float)
+            np_embedding_matrix[int(item)] = glove_model.word_vectors[idx]
+        embedding_matrix = torch.tensor(np_embedding_matrix, dtype=torch.float)
         
         if args.knn == "True": #KNN needs embeddings
-            knn_helper = knn.KNNHelper
+            index = faiss.IndexFlatL2(args.embed_dim)
+            index.add(np_embedding_matrix)
+            res = faiss.StandardGpuResources()
+            gpu_index = faiss.index_cpu_to_gpu(res, 0, index)
 
     model = lstm_attention.LSTMAttentionModel(n_items, 
                                               args.hidden_size, 
@@ -114,7 +118,7 @@ def main():
                                               args.alignment_function,
                                               args.pos_enc,
                                               embedding_matrix=embedding_matrix,
-                                              knn_helper=knn_helper).to(device) 
+                                              index_faiss=gpu_index).to(device) 
 
     optimizer = optim.Adam(params=model.parameters(), 
                            lr=args.lr, 
