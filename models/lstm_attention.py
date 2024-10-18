@@ -52,7 +52,7 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
 
       ## KNN
       if knn_helper is not None:
-        self.use_knn = False
+        self.use_knn = True
         self.knn_helper = knn_helper
         self.data_embeddings = embedding_matrix 
   
@@ -174,6 +174,7 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       attn_output = F.relu(self.hidden_to_embedding(attn_output))  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
     
       if self.use_knn: # maybe also need to add a % of the tensor...
+        print("here")
         closest_tensor = find_closest_tensor(initial_embs, self.data_embeddings)  # Use KNN to find the closest tensor in the dataset  
         closest_tensor = torch.mean(closest_tensor, dim=0) 
         #closest_tensor = torch.mul(closest_tensor, 0.25)
