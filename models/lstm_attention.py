@@ -59,7 +59,7 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
   
       ## Embeddings
       if embedding_matrix is not None:
-        self.embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=True, padding_idx=0)
+        self.embedding = nn.Embedding.from_pretrained(embedding_matrix, freeze=False, padding_idx=0)
       else: 
         self.embedding = nn.Embedding(n_items, embedding_dim, padding_idx=0)
       self.dropout = nn.Dropout(drop_prob)
