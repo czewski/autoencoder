@@ -38,7 +38,7 @@ def collate_fn_no_target(data):
     #mask = utils.create_matrix_mask(len(seq), 20, lens)
     #outputs = outputs * mask
 
-def collate_fn_narm(data, max_len=15):
+def collate_fn_narm(data, max_len):
     """This function will be used to pad the sessions to max length
        in the batch and transpose the batch from 
        batch_size x max_seq_len to max_seq_len x batch_size.

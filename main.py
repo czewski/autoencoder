@@ -40,7 +40,7 @@ parser.add_argument('--lr_dc_step', type=int, default=40, help='the number of st
 
 parser.add_argument('--topk', type=int, default=20, help='number of top score items selected for calculating recall and mrr metrics')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
-parser.add_argument('--max_len', type=int, default=15, help='max length of sequence')
+parser.add_argument('--max_len', type=int, default=19, help='max length of sequence')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
 
 parser.add_argument('--alignment_function', type=str, default='sdp', help='sdp, dp, additive, concat, biased_general, general')
@@ -80,9 +80,9 @@ def main():
     train_data = dataset.RecSysDatasetNarm(train)
     valid_data = dataset.RecSysDatasetNarm(valid)
     test_data = dataset.RecSysDatasetNarm(test)
-    train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True, collate_fn = utils.collate_fn_narm)
-    valid_loader = DataLoader(valid_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
-    test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn = utils.collate_fn_narm)
+    train_loader = DataLoader(train_data, batch_size = args.batch_size, shuffle = True, collate_fn=lambda data: utils.collate_fn_narm(data, max_len=args.max_len))
+    valid_loader = DataLoader(valid_data, batch_size = args.batch_size, shuffle = False, collate_fn=lambda data: utils.collate_fn_narm(data, max_len=args.max_len))
+    test_loader = DataLoader(test_data, batch_size = args.batch_size, shuffle = False, collate_fn=lambda data: utils.collate_fn_narm(data, max_len=args.max_len))
 
     gpu_index, embedding_matrix = None, None
     if args.embeddings == "item2vec": ## Load Embedding Matrix
