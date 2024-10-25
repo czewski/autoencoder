@@ -13,8 +13,7 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         self.hidden_size = hidden_size
         self.head_dim = hidden_size // num_heads
-        print(self.head_dim)
-        print(num_heads)
+        self.layer_norm = nn.LayerNorm(hidden_size)
 
         assert self.head_dim * num_heads == hidden_size, "hidden_size must be divisible by num_heads"
 
@@ -27,24 +26,30 @@ class MultiHeadAttention(nn.Module):
     def forward(self, lstm_output, padding_mask):
         batch_size = lstm_output.size(0)
 
-        ## Linear projections
+        # Linear projections for query, key, value
         queries = self.query(lstm_output)
         keys = self.key(lstm_output)
         values = self.value(lstm_output)
-        queries = queries.reshape(batch_size * self.num_heads, -1, self.head_dim)
-        keys = keys.reshape(batch_size * self.num_heads, -1, self.head_dim)
-        values = values.reshape(batch_size * self.num_heads, -1, self.head_dim)
 
-        ## Alignment Functions
-        score = torch.bmm(queries, keys.transpose(-1, -2))/(self.hidden_size**0.5) 
+        # Reshape for multi-head attention
+        queries = queries.view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        keys = keys.view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        values = values.view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # Scaled Dot-Product Attention
+        score = torch.matmul(queries, keys.transpose(-1, -2)) / (self.head_dim ** 0.5)
 
         if padding_mask is not None:
             score = score.masked_fill(padding_mask.unsqueeze(1).unsqueeze(2) == 0, float('-inf'))
 
-        attention = self.softmax(score) 
-        weighted_values = torch.matmul(attention, values)  # (batch_size, num_heads, seq_len, head_dim)
+        attention = self.softmax(score)
+        weighted_values = torch.matmul(attention, values)
+
+        # Reshape back to original dimension
         weighted_values = weighted_values.transpose(1, 2).contiguous().view(batch_size, -1, self.hidden_size)
+
         output = self.fc_out(weighted_values)
+        output = self.layer_norm(output + lstm_output)  # Add residual connection
         return output
 
 class PositionalEncoding(nn.Module):
@@ -88,21 +93,6 @@ class LSTMAttentionModel(nn.Module):
       ## Linear layer to map from hidden size to embedding size
       self.embedding_to_hidden = nn.Linear(embedding_dim, hidden_size)
       self.hidden_to_embedding = nn.Linear(hidden_size, embedding_dim)
-
-      self._initialize_weights()
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.LSTM):
-                for param in m.parameters():
-                    if len(param.shape) >= 2:  # Weights (2D matrices)
-                        init.xavier_uniform_(param)
-                    else:  # Biases (1D vectors)
-                        init.constant_(param, 0)
       
     def forward(self, x, lengths):
       x = x.long()
@@ -119,10 +109,15 @@ class LSTMAttentionModel(nn.Module):
       embs = embs.permute(1, 0, 2) # Change dimensions to: (batch_size, sequence_length, embedding_dim)
       padding_mask = (torch.sum(embs, dim=-1) != 0) 
       attn_output = self.multihead_attention(embs, padding_mask)
-      attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
-      attn_output = self.hidden_to_embedding(attn_output)  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
+      attn_output = self.hidden_to_embedding(attn_output)
 
+      # attn_output = torch.mean(attn_output, dim=1)  # (batch_size, hidden_size)
+      # attn_output = self.hidden_to_embedding(attn_output)  # Linear layer to map from hidden size to embedding size (batch_size, embedding_dim)
       # There's gotta be a better way to do this, maybe we can even introduce some more linear layers in here? 
+      #item_embs = self.embedding(torch.arange(self.output_size).to(x.device))  
+      #scores = torch.matmul(attn_output, item_embs.transpose(0, 1))
+
       item_embs = self.embedding(torch.arange(self.output_size).to(x.device))  
-      scores = torch.matmul(attn_output, item_embs.transpose(0, 1))
+      last_hidden_state = attn_output[torch.arange(attn_output.size(0)), lengths - 1]
+      scores = torch.matmul(last_hidden_state, item_embs.transpose(0, 1))
       return scores

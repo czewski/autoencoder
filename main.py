@@ -29,10 +29,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: data/diginetica/yoochoose1_4/yoochoose1_64')
 
 parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
-parser.add_argument('--hidden_size', type=int, default=150, help='hidden state size of gru module')
+parser.add_argument('--hidden_size', type=int, default=512, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
-parser.add_argument('--epoch', type=int, default=15, help='the number of epochs to train for')
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
+parser.add_argument('--epoch', type=int, default=1, help='the number of epochs to train for')
+parser.add_argument('--lr', type=float, default=0.0001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate') #lr * lr_dc
 parser.add_argument('--lr_dc_step', type=int, default=10, help='the number of steps after which the learning rate decay') 
 
@@ -40,7 +40,7 @@ parser.add_argument('--topk', type=int, default=20, help='number of top score it
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
 parser.add_argument('--max_len', type=float, default=18, help='max length of sequence')
 parser.add_argument('--weight_decay', type=float, default=1e-5, help='regularization l2')
-parser.add_argument('--pos_enc', type=bool, default="True", help='True to activate posistional encoding')
+parser.add_argument('--pos_enc', type=bool, default="False", help='True to activate posistional encoding')
 parser.add_argument('--embeddings', type=str, default='random', help='random, item2vec_06_08, ')
 args = parser.parse_args()
 #print(args)
@@ -81,11 +81,10 @@ def main():
                                               args.embed_dim, 
                                               args.batch_size,
                                               args.pos_enc,
-                                              num_heads=5).to(device) 
+                                              num_heads=8).to(device) 
 
     optimizer = optim.Adam(params=model.parameters(), 
-                           lr=args.lr, 
-                           weight_decay=args.weight_decay) 
+                           lr=args.lr)  #weight_decay=args.weight_decay
     
     criterion = nn.CrossEntropyLoss()
 
@@ -150,7 +149,7 @@ def main():
 
     # Save metrics
     model_unique_id = MODEL_VARIATION + timestamp
-    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size, args.embed_dim, args.weight_decay,datasetname, args.epoch, args.topk, args.max_len, args.alignment_function, args.pos_enc, args.knn, args.embeddings, args.folds]  
+    fields=[model_unique_id, test_recall, test_mrr, test_hit,timestamp,(time.time() - now_time),valid_recall, valid_mrr, valid_hit, args.lr, args.hidden_size, args.batch_size, args.embed_dim, args.weight_decay,datasetname, args.epoch, args.topk, args.max_len, args.pos_enc, args.embeddings]  
     with open(r'stats/data.csv', 'a') as f:
         writer = csv.writer(f)
         writer.writerow(fields)
@@ -163,6 +162,9 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
     for i, (seq, target, lens) in tqdm(enumerate(train_loader), total=len(train_loader)):
         seq = seq.to(device)
         target = target.to(device)
+
+        assert not torch.isnan(seq).any(), "NaN found in input sequences!"
+        assert not torch.isnan(target).any(), "NaN found in target!"
         
         optimizer.zero_grad()
         outputs = model(seq, lens)
@@ -171,6 +173,12 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
         optimizer.step() 
+
+        if (torch.any(torch.isnan(seq)))|(torch.any(torch.isnan(target)))|(torch.any(torch.isnan(loss))):
+            print("NaN values found in", epoch, i)
+            print("seq", seq)
+            print("target", target)
+            break
 
         loss_val = loss.item()
         sum_epoch_loss += loss_val
