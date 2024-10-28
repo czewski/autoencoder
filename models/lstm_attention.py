@@ -93,22 +93,6 @@ class LSTMAttentionModel(nn.Module): #embedding_matrix
       # Linear layer to map from hidden size to embedding size
       self.embedding_to_hidden = nn.Linear(embedding_dim, hidden_size)
       self.hidden_to_embedding = nn.Linear(hidden_size, embedding_dim)
-
-      self._initialize_weights()
-
-    def _initialize_weights(self):
-        # Apply Xavier initialization to linear layers and LSTM weights
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.LSTM):
-                for param in m.parameters():
-                    if len(param.shape) >= 2:  # Weights (2D matrices)
-                        init.xavier_uniform_(param)
-                    else:  # Biases (1D vectors)
-                        init.constant_(param, 0)
       
     # F.scaled_dot_product_attention(query, key, value)  
     def attention_net(self, lstm_output, padding_mask): 
