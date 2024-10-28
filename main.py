@@ -30,7 +30,7 @@ from models import mlp_narm, lstm_narm, lstm_attention, knn
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: data/diginetica/yoochoose1_4/yoochoose1_64')
 
-parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
+parser.add_argument('--batch_size', type=int, default=4, help='input batch size')
 parser.add_argument('--hidden_size', type=int, default=150, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
 parser.add_argument('--epoch', type=int, default=50, help='the number of epochs to train for')
@@ -122,8 +122,7 @@ def main():
                                               index_faiss=gpu_index).to(device) 
 
     optimizer = optim.Adam(params=model.parameters(), 
-                           lr=args.lr, 
-                           weight_decay=args.weight_decay) 
+                           lr=args.lr)  #, weight_decay=args.weight_decay
     
     criterion = nn.CrossEntropyLoss()
 
@@ -201,6 +200,8 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
     start = time.time()
     for i, (seq, target, lens) in tqdm(enumerate(train_loader), total=len(train_loader)):
         seq = seq.to(device)
+        print(seq)
+
         target = target.to(device)
 
         if (torch.any(torch.isnan(seq)))|(torch.any(torch.isnan(target))):
