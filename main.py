@@ -30,10 +30,10 @@ from models import mlp_narm, lstm_narm, lstm_attention, knn
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_path', default='data/diginetica/', help='dataset directory path: data/diginetica/yoochoose1_4/yoochoose1_64')
 
-parser.add_argument('--batch_size', type=int, default=4, help='input batch size')
+parser.add_argument('--batch_size', type=int, default=128, help='input batch size')
 parser.add_argument('--hidden_size', type=int, default=150, help='hidden state size of gru module')
 parser.add_argument('--embed_dim', type=int, default=50, help='the dimension of item embedding')
-parser.add_argument('--epoch', type=int, default=50, help='the number of epochs to train for')
+parser.add_argument('--epoch', type=int, default=5, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate') #lr * lr_dc
 parser.add_argument('--lr_dc_step', type=int, default=40, help='the number of steps after which the learning rate decay') 
@@ -201,8 +201,6 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
     start = time.time()
     for i, (seq, target, lens) in tqdm(enumerate(train_loader), total=len(train_loader)):
         seq = seq.to(device)
-        print(seq)
-
         target = target.to(device)
 
         if (torch.any(torch.isnan(seq)))|(torch.any(torch.isnan(target))):
