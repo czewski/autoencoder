@@ -163,7 +163,8 @@ def main():
                 'optimizer': optimizer.state_dict()
             }
             torch.save(ckpt_dict, 'checkpoints/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')
-        
+            torch.save(model.embedding.weight.data, 'embeddings/'+MODEL_VARIATION+'latest_checkpoint_'+timestamp+'.pth.tar')        
+
         # Patience
         if early_stopper.early_stop(valid_loss):    
             print(f"Early stop in epoch {epoch}!")         
