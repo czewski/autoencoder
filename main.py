@@ -21,7 +21,7 @@ import time
 import argparse
 from tqdm import tqdm
 import pandas as pd
-import faiss
+#import faiss
 
 #Local
 from utils import utils, dataset, probability_metrics
@@ -212,6 +212,10 @@ def trainForEpoch(train_loader, model, optimizer, epoch, num_epochs, criterion, 
 
         loss = criterion(outputs, target)
         loss.backward()
+
+        if (torch.any(torch.isnan(seq)))|(torch.any(torch.isnan(target)))|(torch.any(torch.isnan(loss))):
+            print("NaN values found in", epoch, i)
+            break
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
         optimizer.step() 

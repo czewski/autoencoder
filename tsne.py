@@ -4,7 +4,7 @@ from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
-embeddings = torch.load('embeddings.pt').cpu().numpy()
+embeddings = torch.load('embeddings/diginetica_LSTM_ATT_latest_checkpoint_10_11_2024_17:34:25.pth.tar').cpu().numpy()
 print(f"Embeddings shape: {embeddings.shape}")
 
 # Initialize t-SNE
@@ -27,3 +27,4 @@ plt.ylabel('Dimension 2')
 plt.colorbar(scatter)
 plt.grid(True)
 plt.show()
+print('hi')
